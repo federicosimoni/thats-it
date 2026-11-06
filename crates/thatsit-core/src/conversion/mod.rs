@@ -463,9 +463,7 @@ impl RawConversion {
                     steps.push(Step::Command { argv, timeout });
                 }
                 (None, Some(name)) => {
-                    let ok_name = name
-                        .strip_prefix(ENGINE_PREFIX)
-                        .is_some_and(is_valid_id);
+                    let ok_name = name.strip_prefix(ENGINE_PREFIX).is_some_and(is_valid_id);
                     if !ok_name {
                         p.push(format!(
                             "{at}: invalid engine {name:?} (expected \"{ENGINE_PREFIX}<name>\")"
