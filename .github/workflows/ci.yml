@@ -26,6 +26,11 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test --workspace
+      - name: Run every bundled conversion with the real macOS tools
+        if: runner.os == 'macOS'
+        run: |
+          brew install ffmpeg || echo "::warning::ffmpeg not installed; ffmpeg conversions will be skipped"
+          cargo test -p thatsit-core --test run_bundled -- --nocapture
 
   app-macos:
     name: App (macOS build + smoke test)
