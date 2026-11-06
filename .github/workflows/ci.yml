@@ -120,6 +120,22 @@ jobs:
           osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to true' || true
           sleep 2
           capture dark
+      - name: Bundle the universal app (ad-hoc signed) and dmg
+        run: |
+          cargo xtask dmg
+          APP="target/bundle/That's it.app"
+          lipo -info "$APP/Contents/MacOS/thatsit" | grep -q "x86_64 arm64\|arm64 x86_64"
+          plutil -p "$APP/Contents/Info.plist"
+          ls "$APP/Contents/Resources" "$APP/Contents/Resources/conversions" | head -50
+          # The bundled app must find its own Resources/conversions.
+          sips -s format jpeg e2e/note/note-001.png --out bundle-test.jpg > /dev/null
+          "$APP/Contents/MacOS/thatsit" --convert image.to-png bundle-test.jpg 2>&1 | tee bundle.log
+          grep -q "Contents/Resources/conversions" bundle.log
+          test -s bundle-test.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dmg
+          path: target/bundle/*.dmg
       - uses: actions/upload-artifact@v4
         if: always()
         with:
