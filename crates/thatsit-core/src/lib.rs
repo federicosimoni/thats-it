@@ -4,6 +4,7 @@
 //! thin native shell around it.
 
 pub mod conversion;
+pub mod engines;
 pub mod geometry;
 pub mod menu;
 pub mod output;

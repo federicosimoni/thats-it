@@ -11,6 +11,11 @@ rust-version.workspace = true
 [dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
 toml = "1.2"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "tiff", "bmp", "gif", "webp"] }
+img-parts = "0.4"
+oxipng = { version = "10.2", default-features = false, features = ["parallel"] }
+resvg = "0.49"
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 
 [dev-dependencies]
 tempfile = "3.27"
