@@ -1,0 +1,16 @@
+# HEIC (iPhone photos) → JPG, using the built-in `sips` tool.
+schema     = 1
+id         = "image.heic-to-jpg"
+category   = "images"
+icon       = "photo"
+accepts    = ["public.heic", "public.heif"]
+accepts_ext = ["heic", "heif"]
+output_ext = "jpg"
+requires   = ["sips"]
+
+[label]
+en = "Convert to JPG"
+it = "Converti in JPG"
+
+[[steps]]
+cmd = ["sips", "-s", "format", "jpeg", "{input}", "--out", "{output}"]

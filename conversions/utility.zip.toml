@@ -1,0 +1,15 @@
+# Any file or folder → ZIP archive, using the built-in `ditto` tool (keeps macOS metadata).
+schema     = 1
+id         = "utility.zip"
+category   = "utilities"
+icon       = "doc.zipper"
+accepts    = ["public.item"]
+output_ext = "zip"
+requires   = ["ditto"]
+
+[label]
+en = "Compress to ZIP"
+it = "Comprimi in ZIP"
+
+[[steps]]
+cmd = ["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", "{input}", "{output}"]

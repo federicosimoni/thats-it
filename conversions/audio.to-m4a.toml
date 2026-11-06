@@ -1,0 +1,22 @@
+# Uncompressed or other audio → M4A (AAC), using the built-in `afconvert` tool.
+schema     = 1
+id         = "audio.to-m4a"
+category   = "audio-video"
+icon       = "waveform"
+accepts    = [
+  "com.microsoft.waveform-audio",
+  "public.aiff-audio",
+  "public.aifc-audio",
+  "com.apple.coreaudio-format",
+  "public.mp3",
+]
+accepts_ext = ["wav", "aif", "aiff", "caf", "mp3"]
+output_ext = "m4a"
+requires   = ["afconvert"]
+
+[label]
+en = "Convert to M4A (AAC)"
+it = "Converti in M4A (AAC)"
+
+[[steps]]
+cmd = ["afconvert", "-f", "m4af", "-d", "aac", "{input}", "{output}"]
