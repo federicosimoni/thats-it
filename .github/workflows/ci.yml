@@ -60,6 +60,22 @@ jobs:
           screencapture -x screenshot.png || true
           kill "$PID"
           echo "--- app log ---"; cat thatsit.log
+      - name: App engines — documents to PDF and PDF pages to PNG
+        run: |
+          BIN=./target/aarch64-apple-darwin/debug/thatsit
+          mkdir -p e2e && cd e2e
+          printf 'Hello from That'"'"'s it.\n\nA second paragraph.\n' > note.txt
+          printf '<html><body><h1>Title</h1><p>Body text.</p></body></html>' > page.html
+          printf '# Heading\n\nSome *Markdown*.\n' > readme.md
+          textutil -convert docx -output letter.docx note.txt
+          ../$BIN --convert document.to-pdf note.txt page.html letter.docx
+          ../$BIN --convert document.markdown-to-pdf readme.md
+          ../$BIN --convert document.pdf-to-png note.pdf
+          ls -la . note
+          test -s note.pdf && test -s page.pdf && test -s letter.pdf && test -s readme.pdf
+          test -s note/note-001.png
+          file note/note-001.png
+          mdls -name kMDItemNumberOfPages note.pdf readme.pdf || true
       - name: Visual self-test — ring opened on a HEIC photo (light and dark)
         run: |
           # A few extra user conversions so the ring shows a realistic number of sectors.
