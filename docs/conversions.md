@@ -1,6 +1,6 @@
 # Writing conversions
 
-> **Status: first draft (Phase 1).** The schema is versioned (`schema = 1`); fields may still
+> **Status: draft (updated in Phase 3).** The schema is versioned (`schema = 1`); fields may still
 > be added before v0.1.0, but existing ones will keep their meaning.
 
 A *conversion* is one TOML file that tells *That's it* which files it accepts, which
@@ -52,7 +52,8 @@ cmd = ["sips", "-s", "format", "jpeg", "{input}", "--out", "{output}"]
 | `accepts` | one of these two | [UTType](https://developer.apple.com/documentation/uniformtypeidentifiers/system-declared_uniform_type_identifiers) identifiers. **Conformance is honoured:** `public.image` matches every image, `public.item` matches every file and folder. |
 | `accepts_ext` | one of these two | File extensions, as a fallback (case-insensitive, with or without the leading dot). |
 | `output_kind` | no | `"file"` (default) or `"directory"`. A directory output is named after the input (`report.pdf` → `report/`) and is meant for multi-file results such as one image per PDF page. |
-| `output_ext` | for `output_kind = "file"` | Extension of the result, e.g. `jpg`. Must not be set for directory outputs. |
+| `output_ext` | for `output_kind = "file"` | Extension of the result, e.g. `jpg`, or `"same"` to keep the input's extension (e.g. resize, remove metadata). Must not be set for directory outputs. |
+| `output_suffix` | no | Text appended to the input name: `" 50%"` turns `photo.jpg` into `photo 50%.jpg` instead of `photo (1).jpg`. At most 40 characters, no `/`, `:` or leading `.`. |
 | `requires` | no | Bare names of the command-line tools the steps use. If any is missing, the conversion is **hidden** (Preferences explains what to install). |
 | `[label]` | yes | Localized menu label per language tag. `en` is required and is the fallback. |
 | `[[steps]]` | yes | One or more steps, run in order. |
@@ -76,8 +77,8 @@ args   = { format = "png", dpi = 144 }
 | Field | Description |
 |---|---|
 | `cmd` | The argv array. `cmd[0]` is either a bare tool name that **must be listed in `requires`**, or an absolute path. It cannot contain placeholders. |
-| `engine` | A builtin engine, `builtin:<name>` (the list of engines is documented in Phase 3). |
-| `args` | Engine options (only with `engine`). String values may use placeholders. |
+| `engine` | A builtin engine, `builtin:<name>` (see [Builtin engines](#builtin-engines)). |
+| `args` | Engine options (only with `engine`). String values may use placeholders. Every engine also accepts `input` and `output` to read from / write to another path, e.g. a file in `{tmpdir}` between two steps. |
 | `timeout_secs` | Per-step timeout in seconds (1–7200, default 300). |
 
 At least one step must write the result: either a `cmd` argument contains `{output}`, or
@@ -95,6 +96,30 @@ the step is an engine (engines always receive the output path).
 
 Placeholders can appear anywhere inside an argument (`"{tmpdir}/icon.iconset"`). Use `{{`
 and `}}` for literal braces.
+
+## Builtin engines
+
+| Engine | What it does | `args` |
+|---|---|---|
+| `builtin:image` | Converts raster images (PNG, JPEG, TIFF, BMP, GIF, WebP; HEIC is read by `sips` instead) and resizes them. EXIF orientation is applied. | `format`: `png`, `jpeg`, `tiff`, `bmp`, `gif`, `webp` (lossless); default = output extension. `quality`: 1–100 (JPEG, default 85). `scale`: 0.01–1.0. `max_size`: longest side in px (never enlarges). |
+| `builtin:svg-to-png` | Renders SVG (with system fonts) to PNG. | `scale`: 0.1–16, default 2. |
+| `builtin:strip-metadata` | Removes EXIF/GPS, XMP, IPTC and comments from JPEG, PNG and WebP **without re-encoding**; keeps the colour profile. | — |
+| `builtin:optimize-png` | Lossless PNG optimisation (oxipng). | `level`: 0–6, default 2. |
+| `builtin:markdown-to-html` | Markdown (CommonMark, tables, footnotes, task lists) to a standalone HTML page. | — |
+| `builtin:doc-to-pdf` | Loads any document macOS can read as rich text (DOCX, DOC, RTF, ODT, HTML, TXT…) and prints it to a paginated PDF with the default paper size. | — |
+| `builtin:pdf-to-images` | Renders every PDF page to `<name>-001.png`, `<name>-002.png`… (use with `output_kind = "directory"`). | `dpi`: 36–600, default 144. |
+
+A multi-step example (Markdown → HTML in the temporary folder → PDF):
+
+```toml
+[[steps]]
+engine = "builtin:markdown-to-html"
+args = { output = "{tmpdir}/{stem}.html" }
+
+[[steps]]
+engine = "builtin:doc-to-pdf"
+args = { input = "{tmpdir}/{stem}.html" }
+```
 
 ## Security model
 
@@ -121,5 +146,12 @@ the same list as `PATH` to the commands it runs.
 2. Open Preferences: invalid files are listed with the reason.
 3. Drag a matching file onto the widget.
 
+You can also run a conversion without the widget, which prints the result or the error:
+
+```sh
+cargo run -p thatsit-app -- --convert image.to-png ~/Desktop/photo.jpg
+```
+
 To contribute a bundled conversion, add the file to [`conversions/`](../conversions) and
-run `cargo test`: the test suite validates every bundled file.
+run `cargo test`: the test suite validates every bundled file, and on macOS it also runs
+every conversion on generated sample files (`crates/thatsit-core/tests/run_bundled.rs`).
