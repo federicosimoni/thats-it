@@ -6,6 +6,7 @@
 pub mod conversion;
 pub mod engines;
 pub mod geometry;
+pub mod i18n;
 pub mod menu;
 pub mod output;
 pub mod pipeline;
