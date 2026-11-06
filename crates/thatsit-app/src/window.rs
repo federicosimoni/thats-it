@@ -18,7 +18,7 @@ use objc2_core_graphics::{CGWindowLevelForKey, CGWindowLevelKey};
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 
 use crate::catalog::Catalog;
-use crate::ring_view::{COLLAPSED_SIZE, RingView};
+use crate::ring_view::{RingView, collapsed_size};
 
 /// The widget: its window plus the ring view inside it.
 pub struct Widget {
@@ -28,7 +28,10 @@ pub struct Widget {
 
 impl Widget {
     pub fn new(mtm: MainThreadMarker, catalog: Rc<Catalog>) -> Self {
-        let frame = NSRect::new(NSPoint::ZERO, NSSize::new(COLLAPSED_SIZE, COLLAPSED_SIZE));
+        let frame = NSRect::new(
+            NSPoint::ZERO,
+            NSSize::new(collapsed_size(), collapsed_size()),
+        );
 
         // SAFETY: `setReleasedWhenClosed(false)` is called right below, which is required
         // when an NSWindow is created outside of a window controller and owned by Rust.
@@ -71,6 +74,14 @@ impl Widget {
 
     pub fn view(&self) -> &RingView {
         &self.view
+    }
+
+    pub fn view_retained(&self) -> Retained<RingView> {
+        self.view.clone()
+    }
+
+    pub fn window(&self) -> Retained<NSWindow> {
+        self.window.clone()
     }
 }
 

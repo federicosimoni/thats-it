@@ -16,7 +16,7 @@ pub fn convert(catalog: &Catalog, args: &[String]) {
         eprintln!("unknown conversion {id:?}");
         std::process::exit(2);
     };
-    if !catalog.availability.can_run(&conversion) {
+    if !catalog.availability().can_run(&conversion) {
         eprintln!("{id} cannot run here (missing tools or engines)");
         std::process::exit(2);
     }

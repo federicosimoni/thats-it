@@ -1,29 +1,31 @@
-//! Loads the conversion registry and checks which tools are installed.
+//! Loads the conversion registry, checks which tools are installed and holds the UI
+//! language.
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use objc2_app_kit::NSImage;
 use objc2_foundation::{NSBundle, NSLocale, NSString};
-use thatsit_core::conversion::{Availability, Conversion, Origin, Registry};
+use thatsit_core::conversion::{Availability, Category, Conversion, Origin, Registry};
 use thatsit_core::engines::CORE_ENGINES;
+use thatsit_core::i18n::I18n;
 use thatsit_core::tools::ToolFinder;
 
 use crate::app_engines::APP_ENGINES;
-
 use crate::log;
 
 /// Bundle identifier, also the name of the per-user folders.
 pub const BUNDLE_ID: &str = "io.github.federicosimoni.thatsit";
 
-/// Everything the drop view needs to match dragged files.
+/// Everything the UI needs to match dragged files and show strings.
 pub struct Catalog {
     pub registry: Registry,
-    pub availability: Availability,
-    /// Shared with the job thread to resolve tool paths.
+    /// Recomputed when tools are rescanned (Preferences).
+    availability: RefCell<Availability>,
     pub tools: Arc<ToolFinder>,
-    /// Preferred UI languages, most preferred first (for conversion labels).
-    pub languages: Vec<String>,
+    pub i18n: I18n,
+    languages: Vec<String>,
 }
 
 impl Catalog {
@@ -45,25 +47,6 @@ impl Catalog {
                 issue.message
             ));
         }
-
-        let tools = Arc::new(ToolFinder::from_env());
-        let availability = availability_for(&registry, &tools);
-        for c in registry.conversions() {
-            let missing = availability.missing_tools(c);
-            let engines = availability.missing_engines(c);
-            if !missing.is_empty() || !engines.is_empty() {
-                log::info(format!(
-                    "hidden {}: missing {}",
-                    c.id,
-                    missing
-                        .iter()
-                        .chain(engines.iter())
-                        .copied()
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ));
-            }
-        }
         for c in registry.conversions() {
             if let Some(icon) = &c.icon
                 && NSImage::imageWithSystemSymbolName_accessibilityDescription(
@@ -75,33 +58,85 @@ impl Catalog {
                 log::info(format!("{}: unknown SF Symbol {icon:?}", c.id));
             }
         }
+
+        let tools = Arc::new(ToolFinder::from_env());
+        let availability = availability_for(&registry, &tools);
+        log_hidden(&registry, &availability);
         log::info(format!(
             "{} conversion(s) loaded",
             registry.conversions().len()
         ));
 
-        let languages = NSLocale::preferredLanguages()
-            .iter()
-            .map(|l| l.to_string())
-            .collect();
+        let i18n = I18n::new(&ui_languages());
+        log::info(format!("UI language: {}", i18n.language()));
+        let languages = i18n.label_languages();
         Self {
             registry,
-            availability,
+            availability: RefCell::new(availability),
             tools,
+            i18n,
             languages,
         }
+    }
+
+    pub fn availability(&self) -> Availability {
+        self.availability.borrow().clone()
+    }
+
+    /// Forgets cached tool lookups and recomputes which conversions can run.
+    pub fn rescan_tools(&self) {
+        self.tools.rescan();
+        let availability = availability_for(&self.registry, &self.tools);
+        log_hidden(&self.registry, &availability);
+        *self.availability.borrow_mut() = availability;
     }
 
     pub fn label<'c>(&self, conversion: &'c Conversion) -> &'c str {
         conversion.label_for(&self.languages)
     }
 
-    /// Whether Italian is preferred over English (UI strings until Fluent lands in Phase 4).
-    pub fn prefers_italian(&self) -> bool {
-        self.languages
-            .first()
-            .is_some_and(|l| l.to_ascii_lowercase().starts_with("it"))
+    pub fn category_name(&self, c: Category) -> String {
+        self.i18n.tr(match c {
+            Category::Images => "category-images",
+            Category::AudioVideo => "category-audio-video",
+            Category::Documents => "category-documents",
+            Category::Utilities => "category-utilities",
+        })
     }
+
+    /// Every distinct tool required by some conversion, sorted.
+    pub fn required_tools(&self) -> Vec<String> {
+        let mut tools: Vec<String> = self
+            .registry
+            .conversions()
+            .iter()
+            .flat_map(|c| c.requires.iter().cloned())
+            .collect();
+        tools.sort();
+        tools.dedup();
+        tools
+    }
+}
+
+/// The UI languages as macOS resolves them for this app: inside a bundle, its preferred
+/// localizations (which honour the per-app language in System Settings); unbundled, the
+/// user's preferred languages.
+fn ui_languages() -> Vec<String> {
+    let bundle = NSBundle::mainBundle();
+    if bundle.bundleIdentifier().is_some() {
+        let localized: Vec<String> = bundle
+            .preferredLocalizations()
+            .iter()
+            .map(|l| l.to_string())
+            .collect();
+        if !localized.is_empty() {
+            return localized;
+        }
+    }
+    NSLocale::preferredLanguages()
+        .iter()
+        .map(|l| l.to_string())
+        .collect()
 }
 
 fn availability_for(registry: &Registry, tools: &ToolFinder) -> Availability {
@@ -121,6 +156,16 @@ fn availability_for(registry: &Registry, tools: &ToolFinder) -> Availability {
     availability
 }
 
+fn log_hidden(registry: &Registry, availability: &Availability) {
+    for c in registry.conversions() {
+        let mut missing = availability.missing_tools(c);
+        missing.extend(availability.missing_engines(c));
+        if !missing.is_empty() {
+            log::info(format!("hidden {}: missing {}", c.id, missing.join(", ")));
+        }
+    }
+}
+
 /// `That's it.app/Contents/Resources/conversions`, or the repository's `conversions/`
 /// folder when running unbundled with `cargo run`.
 fn bundled_dir() -> Option<PathBuf> {
@@ -135,7 +180,7 @@ fn bundled_dir() -> Option<PathBuf> {
 }
 
 /// `~/Library/Application Support/<bundle id>/conversions`.
-fn user_dir() -> Option<PathBuf> {
+pub fn user_dir() -> Option<PathBuf> {
     std::env::var_os("HOME").map(|home| {
         PathBuf::from(home)
             .join("Library/Application Support")

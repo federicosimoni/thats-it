@@ -48,11 +48,17 @@ use crate::files::{self, DraggedFile};
 use crate::jobs::{Batch, Event, FileResult, Jobs};
 use crate::notify;
 use crate::{log, prefs};
+use thatsit_core::i18n::I18n;
+
+/// Diameter of the collapsed glass disc (Preferences → Widget size).
+fn collapsed_disc() -> f64 {
+    prefs::widget_size().disc()
+}
 
 /// Side of the window while collapsed, in points.
-pub const COLLAPSED_SIZE: f64 = 80.0;
-/// Diameter of the collapsed glass disc.
-const COLLAPSED_DISC: f64 = 76.0;
+pub fn collapsed_size() -> f64 {
+    collapsed_disc() + 4.0
+}
 /// Side of the window while expanded, in points.
 pub const EXPANDED_SIZE: f64 = 332.0;
 /// Radius of the expanded glass disc.
@@ -156,7 +162,7 @@ define_class!(
             let f = self.frame();
             let local = NSPoint::new(point.x - f.origin.x, point.y - f.origin.y);
             let c = centre_of(self.bounds());
-            let r = if self.ivars().expanded.get() { GLASS_RADIUS } else { COLLAPSED_DISC / 2.0 };
+            let r = if self.ivars().expanded.get() { GLASS_RADIUS } else { collapsed_disc() / 2.0 };
             let inside = (local.x - c.x).hypot(local.y - c.y) <= r;
             inside.then(|| Retained::into_super(self.retain()))
         }
@@ -226,7 +232,10 @@ define_class!(
 
 impl RingView {
     pub fn new(mtm: MainThreadMarker, catalog: Rc<Catalog>) -> Retained<Self> {
-        let frame = NSRect::new(NSPoint::ZERO, NSSize::new(COLLAPSED_SIZE, COLLAPSED_SIZE));
+        let frame = NSRect::new(
+            NSPoint::ZERO,
+            NSSize::new(collapsed_size(), collapsed_size()),
+        );
         let jobs = Jobs::start(Arc::clone(&catalog.tools), on_job_event);
         let this = Self::alloc(mtm).set_ivars(RingIvars {
             catalog,
@@ -322,7 +331,7 @@ impl RingView {
             let radius = if expanded {
                 GLASS_RADIUS
             } else {
-                COLLAPSED_DISC / 2.0
+                collapsed_disc() / 2.0
             };
             if let Some(glass) = iv.glass.get() {
                 glass.setFrame(square_around(c, radius * 2.0));
@@ -365,7 +374,7 @@ impl RingView {
             if let Some(progress) = iv.progress.get() {
                 // Starts at 12 o'clock and runs clockwise.
                 let path = CGMutablePath::new();
-                let r = COLLAPSED_DISC / 2.0 - 2.5;
+                let r = collapsed_disc() / 2.0 - 2.5;
                 let top = std::f64::consts::FRAC_PI_2;
                 // SAFETY: a null transform pointer is explicitly allowed by CGPath.
                 unsafe {
@@ -395,7 +404,6 @@ impl RingView {
         };
         let c = centre_of(self.bounds());
         let layout = RingLayout::new(entries.len(), DEAD_ZONE, HIT_OUTER);
-        let italian = iv.catalog.prefers_italian();
 
         without_animations(|| {
             for (shape, icon, text) in iv.sectors.borrow_mut().drain(..) {
@@ -426,7 +434,13 @@ impl RingView {
                     }
                     Entry::Category { category, count } => (
                         category_symbol(*category).to_owned(),
-                        format!("{} ({count})", category_name(*category, italian)),
+                        iv.catalog.i18n.tr_args(
+                            "category-with-count",
+                            &[
+                                ("name", (&iv.catalog.category_name(*category)).into()),
+                                ("count", (*count).into()),
+                            ],
+                        ),
                     ),
                 };
                 // Label centre: middle of the band, at the sector's centre angle.
@@ -531,11 +545,13 @@ impl RingView {
             return NSDragOperation::None;
         }
         let infos: Vec<_> = dragged.iter().map(DraggedFile::file_info).collect();
+        let disabled = prefs::disabled_conversions();
         let matches: Vec<Match> = iv
             .catalog
             .registry
-            .matching(&infos, &iv.catalog.availability)
+            .matching(&infos, &iv.catalog.availability())
             .into_iter()
+            .filter(|c| !disabled.contains(&c.id))
             .map(|c| Match {
                 id: c.id.clone(),
                 label: iv.catalog.label(c).to_owned(),
@@ -712,7 +728,7 @@ impl RingView {
                     p.setHidden(true);
                     p.setStrokeEnd(0.0);
                 }
-                let summary = summarize(&label, &results, iv.catalog.prefers_italian());
+                let summary = summarize(&label, &results, &iv.catalog.i18n);
                 self.flash(if summary.failed > 0 {
                     "exclamationmark.triangle"
                 } else if summary.ok > 0 {
@@ -781,7 +797,7 @@ impl RingView {
         let size = if expanded {
             EXPANDED_SIZE
         } else {
-            COLLAPSED_SIZE
+            collapsed_size()
         };
         iv.expanded.set(expanded);
         iv.resizing.set(true);
@@ -843,7 +859,7 @@ impl RingView {
         let Some(window) = self.window() else {
             return;
         };
-        let Some(screen) = NSScreen::mainScreen(self.mtm()) else {
+        let Some(screen) = chosen_screen(self.mtm()) else {
             return;
         };
         let vf = screen.visibleFrame();
@@ -859,7 +875,7 @@ impl RingView {
         );
         let (x, y) = geometry::clamp_center(centre, EXPANDED_SIZE / 2.0, to_rect(vf));
         self.ivars().resizing.set(true);
-        window.setFrame_display(square_around(NSPoint::new(x, y), COLLAPSED_SIZE), true);
+        window.setFrame_display(square_around(NSPoint::new(x, y), collapsed_size()), true);
         self.ivars().resizing.set(false);
         log::info(format!("widget on screen {name:?} at ({x:.0}, {y:.0})"));
     }
@@ -878,6 +894,33 @@ impl RingView {
             (c.x - vf.origin.x) / vf.size.width,
             (c.y - vf.origin.y) / vf.size.height,
         );
+    }
+
+    // -----------------------------------------------------------------------------------
+    // Control from the menu bar and Preferences
+
+    /// Re-applies size, screen and colors after a preference change.
+    pub fn apply_preferences(&self) {
+        if self.ivars().expanded.get() {
+            return;
+        }
+        self.place_initially();
+        self.layout_subviews();
+        self.refresh_colors();
+    }
+
+    /// Whether a conversion is running.
+    pub fn is_busy(&self) -> bool {
+        self.ivars().busy.get().is_some()
+    }
+
+    /// Cancels the running conversion.
+    pub fn cancel_conversion(&self) {
+        self.ivars().jobs.cancel_current();
+    }
+
+    pub fn catalog(&self) -> &Rc<Catalog> {
+        &self.ivars().catalog
     }
 
     // -----------------------------------------------------------------------------------
@@ -1062,20 +1105,6 @@ fn category_symbol(c: Category) -> &'static str {
     }
 }
 
-/// Category names until Fluent lands in Phase 4.
-fn category_name(c: Category, italian: bool) -> &'static str {
-    match (c, italian) {
-        (Category::Images, false) => "Images",
-        (Category::Images, true) => "Immagini",
-        (Category::AudioVideo, false) => "Audio & Video",
-        (Category::AudioVideo, true) => "Audio e video",
-        (Category::Documents, false) => "Documents",
-        (Category::Documents, true) => "Documenti",
-        (Category::Utilities, false) => "Utilities",
-        (Category::Utilities, true) => "Utilità",
-    }
-}
-
 /// A ring sector between clock angles `start..end` (degrees clockwise from 12 o'clock),
 /// in a non-flipped (y up) coordinate system.
 fn sector_path(
@@ -1177,8 +1206,13 @@ struct Summary {
     text: String,
 }
 
-/// Notification text (English/Italian until Fluent lands in Phase 4).
-fn summarize(label: &str, results: &[FileResult], italian: bool) -> Summary {
+/// Notification text for a finished batch.
+fn summarize(label: &str, results: &[FileResult], i18n: &I18n) -> Summary {
+    let name = |p: &PathBuf| {
+        p.file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    };
     let ok: Vec<&PathBuf> = results
         .iter()
         .filter_map(|r| match r {
@@ -1198,58 +1232,55 @@ fn summarize(label: &str, results: &[FileResult], italian: bool) -> Summary {
     let failures: Vec<String> = results
         .iter()
         .filter_map(|r| match r {
-            FileResult::Failed { input, error } => Some(format!(
-                "{}: {error}",
-                input
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default()
-            )),
+            FileResult::Failed { input, error } => Some(format!("{}: {error}", name(input))),
             _ => None,
         })
         .collect();
-    let cancelled = results
-        .iter()
-        .filter(|r| matches!(r, FileResult::Cancelled))
-        .count();
-    let name = |p: &PathBuf| {
-        p.file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default()
-    };
+    let cancelled = results.iter().any(|r| matches!(r, FileResult::Cancelled));
 
     let mut parts = Vec::new();
-    match (ok.len(), italian) {
-        (0, _) => {}
-        (1, false) => parts.push(format!("{label}: saved {}", name(ok[0]))),
-        (1, true) => parts.push(format!("{label}: salvato {}", name(ok[0]))),
-        (n, false) => parts.push(format!("{label}: {n} files converted")),
-        (n, true) => parts.push(format!("{label}: {n} file convertiti")),
+    match ok.len() {
+        0 => {}
+        1 => parts.push(i18n.tr_args(
+            "summary-saved",
+            &[
+                ("conversion", label.into()),
+                ("file", (&name(ok[0])).into()),
+            ],
+        )),
+        n => parts.push(i18n.tr_args(
+            "summary-converted",
+            &[("conversion", label.into()), ("count", n.into())],
+        )),
     }
     if fell_back {
-        parts.push(if italian {
-            "La cartella originale non è scrivibile: salvato in Download.".to_owned()
-        } else {
-            "The original folder is not writable: saved to Downloads.".to_owned()
-        });
+        let folder = prefs::fallback_dir();
+        parts.push(i18n.tr_args("summary-fallback", &[("folder", (&name(&folder)).into())]));
     }
-    match (failures.len(), italian) {
-        (0, _) => {}
-        (1, false) => parts.push(format!("Failed: {}", failures[0])),
-        (1, true) => parts.push(format!("Non riuscito: {}", failures[0])),
-        (n, false) => parts.push(format!("{n} files failed (see the log)")),
-        (n, true) => parts.push(format!("{n} file non riusciti (vedi il log)")),
+    match failures.len() {
+        0 => {}
+        1 => parts.push(i18n.tr_args("summary-failed-one", &[("error", (&failures[0]).into())])),
+        n => parts.push(i18n.tr_args("summary-failed-many", &[("count", n.into())])),
     }
-    if cancelled > 0 {
-        parts.push(if italian {
-            "Annullato.".to_owned()
-        } else {
-            "Cancelled.".to_owned()
-        });
+    if cancelled {
+        parts.push(i18n.tr("summary-cancelled"));
     }
     Summary {
         ok: ok.len(),
         failed: failures.len(),
         text: parts.join(" "),
     }
+}
+
+/// The screen chosen in Preferences if connected, else the main screen.
+pub fn chosen_screen(mtm: MainThreadMarker) -> Option<Retained<NSScreen>> {
+    if let Some(name) = prefs::screen() {
+        let found = NSScreen::screens(mtm)
+            .iter()
+            .find(|s| s.localizedName().to_string() == name);
+        if found.is_some() {
+            return found;
+        }
+    }
+    NSScreen::mainScreen(mtm)
 }

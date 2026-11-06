@@ -80,8 +80,7 @@ impl Jobs {
         }
     }
 
-    /// Cancels the batch that is running now (used by the menu bar in Phase 4).
-    #[allow(dead_code)]
+    /// Cancels the batch that is running now (menu bar → Cancel Conversion).
     pub fn cancel_current(&self) {
         if let Ok(slot) = self.current.lock() {
             slot.cancel();
@@ -101,7 +100,7 @@ fn run_batch(
     let engines = Chain::new()
         .with(APP_ENGINES, &app_engines)
         .with(CORE_ENGINES, &CoreEngines);
-    let fallback = downloads_dir();
+    let fallback = crate::prefs::fallback_dir();
 
     for (i, input) in batch.files.iter().enumerate() {
         DispatchQueue::main().exec_async(move || on_event(Event::Progress { done: i, total }));
@@ -169,11 +168,4 @@ fn run_one(
         Err(pipeline::PipelineError::Cancelled) => FileResult::Cancelled,
         Err(e) => failed(e.to_string()),
     }
-}
-
-/// `~/Downloads`, the fallback when the source folder is not writable.
-fn downloads_dir() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(|h| PathBuf::from(h).join("Downloads"))
-        .unwrap_or_else(std::env::temp_dir)
 }
