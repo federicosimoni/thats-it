@@ -208,7 +208,7 @@ relevant phase** and adjust.
 
 **Images**
 - PNG ⇄ JPG ⇄ TIFF ⇄ BMP ⇄ GIF → `builtin:image` (`image` crate)
-- → WebP → `image` crate (note: lossless only in pure Rust; lossy WebP would need another encoder — ask)
+- → WebP → `image` crate, **lossless only — DECIDED** (no extra encoder; lossy WebP maybe in v2)
 - HEIC → JPG/PNG → `sips`
 - SVG → PNG → `resvg`
 - PNG → ICNS → `iconutil` (build an `.iconset` with `sips` resizes first)
