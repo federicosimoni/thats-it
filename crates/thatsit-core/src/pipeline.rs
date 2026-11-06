@@ -271,13 +271,22 @@ pub fn run(
                 let args = ctx
                     .substitute_table(args)
                     .map_err(|error| PipelineError::Template { step: i, error })?;
-                engines.run(name, &args, &ctx, cancel).map_err(|message| {
-                    PipelineError::Engine {
+                // `input` / `output` args redirect the engine (multi-step pipelines that
+                // pass intermediate files through {tmpdir}).
+                let mut step_ctx = ctx.clone();
+                if let Some(toml::Value::String(p)) = args.get("input") {
+                    step_ctx.input = PathBuf::from(p);
+                }
+                if let Some(toml::Value::String(p)) = args.get("output") {
+                    step_ctx.output = PathBuf::from(p);
+                }
+                engines
+                    .run(name, &args, &step_ctx, cancel)
+                    .map_err(|message| PipelineError::Engine {
                         step: i,
                         name: name.clone(),
                         message,
-                    }
-                })?;
+                    })?;
                 if cancel.is_cancelled() {
                     return Err(PipelineError::Cancelled);
                 }
@@ -686,6 +695,38 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(err, PipelineError::Engine { .. }));
+    }
+
+    #[test]
+    fn engine_input_output_can_be_redirected() {
+        struct Copy;
+        impl EngineRunner for Copy {
+            fn run(
+                &self,
+                _: &str,
+                _: &toml::Table,
+                ctx: &StepContext,
+                _: &CancelToken,
+            ) -> Result<(), String> {
+                fs::copy(&ctx.input, &ctx.output)
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            }
+        }
+        let (_d, input, output) = setup();
+        let c = conversion(
+            &[],
+            r#"
+            [[steps]]
+            engine = "builtin:copy"
+            args = { output = "{tmpdir}/mid.txt" }
+            [[steps]]
+            engine = "builtin:copy"
+            args = { input = "{tmpdir}/mid.txt" }
+            "#,
+        );
+        run(&c, &input, &output, &tools(), &Copy, &CancelToken::new()).unwrap();
+        assert_eq!(fs::read_to_string(&output).unwrap(), "hello");
     }
 
     #[test]

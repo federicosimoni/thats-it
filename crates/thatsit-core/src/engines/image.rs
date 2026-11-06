@@ -1,7 +1,8 @@
 //! `builtin:image` — raster format conversion and resizing with the `image` crate.
 //!
 //! Args:
-//! - `format` (required): `png`, `jpeg`, `tiff`, `bmp`, `gif` or `webp` (lossless only).
+//! - `format`: `png`, `jpeg`, `tiff`, `bmp`, `gif` or `webp` (lossless only). Defaults to
+//!   the output file's extension (useful with `output_ext = "same"`).
 //! - `quality` (JPEG only, 1–100, default 85).
 //! - `scale` (0.01–1.0): resize by this factor.
 //! - `max_size` (1–65535): shrink so the longest side is at most this many pixels
@@ -20,7 +21,21 @@ use super::{arg_float, arg_int, arg_str, io_err};
 use crate::pipeline::StepContext;
 
 pub(super) fn run(args: &toml::Table, ctx: &StepContext) -> Result<(), String> {
-    let format = arg_str(args, "format")?.ok_or("argument `format` is required")?;
+    let from_ext = ctx
+        .output
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase);
+    let format = match arg_str(args, "format")? {
+        Some(f) => f.to_owned(),
+        None => match from_ext.as_deref() {
+            Some("jpg" | "jpeg") => "jpeg".to_owned(),
+            Some("tif" | "tiff") => "tiff".to_owned(),
+            Some(e @ ("png" | "bmp" | "gif" | "webp")) => e.to_owned(),
+            _ => return Err("argument `format` is required for this output".to_owned()),
+        },
+    };
+    let format = format.as_str();
     let quality = arg_int(args, "quality", 1..=100)?.unwrap_or(85) as u8;
     let scale = arg_float(args, "scale", 0.01..=1.0)?;
     let max_size = arg_int(args, "max_size", 1..=65535)?.map(|n| n as u32);
@@ -191,8 +206,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let input = sample(dir.path());
         let out = dir.path().join("x.png");
+        // Format inferred from the output extension.
+        run(&table(""), &ctx(&input, &out)).unwrap();
+        assert!(image::open(&out).is_ok());
+        let odd = dir.path().join("x.data");
         assert!(
-            run(&table(""), &ctx(&input, &out))
+            run(&table(""), &ctx(&input, &odd))
                 .unwrap_err()
                 .contains("format")
         );

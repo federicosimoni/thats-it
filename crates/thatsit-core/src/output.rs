@@ -63,8 +63,22 @@ impl PendingOutput {
     ///
     /// For file outputs the temporary path does **not** exist yet (some tools refuse to
     /// write over an existing file); for directory outputs an empty directory is created.
-    pub fn prepare(input: &Path, kind: &Output, fallback_dir: &Path) -> io::Result<Self> {
-        let stem = stem_of(input);
+    ///
+    /// `suffix` is appended to the input stem (`photo` + `" 50%"` → `photo 50%.jpg`).
+    /// `kind` must be resolved first ([`crate::conversion::Conversion::output_for`]).
+    pub fn prepare(
+        input: &Path,
+        kind: &Output,
+        suffix: &str,
+        fallback_dir: &Path,
+    ) -> io::Result<Self> {
+        if *kind == Output::SameAsInput {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "unresolved output_ext = \"same\"",
+            ));
+        }
+        let stem = format!("{}{suffix}", stem_of(input));
         let source_dir = input.parent().unwrap_or(Path::new("/"));
         match Self::prepare_in(source_dir, &stem, kind) {
             Ok(p) => Ok(p),
@@ -89,6 +103,7 @@ impl PendingOutput {
                 fs::remove_file(&temp_path)?;
             }
             Output::Directory => fs::create_dir(&temp_path)?,
+            Output::SameAsInput => unreachable!("rejected by prepare"),
         }
         Ok(Self {
             temp_path,
@@ -104,7 +119,7 @@ impl PendingOutput {
     pub fn commit(mut self) -> io::Result<PathBuf> {
         let ext = match &self.kind {
             Output::File { ext } => Some(ext.as_str()),
-            Output::Directory => None,
+            Output::Directory | Output::SameAsInput => None,
         };
         let meta = fs::symlink_metadata(&self.temp_path)
             .map_err(|e| io::Error::new(e.kind(), "the conversion did not produce an output"))?;
@@ -189,7 +204,7 @@ fn temp_name(stem: &str, kind: &Output) -> String {
     );
     match kind {
         Output::File { ext } => format!(".{stem}.thatsit-{unique}.{ext}"),
-        Output::Directory => format!(".{stem}.thatsit-{unique}"),
+        Output::Directory | Output::SameAsInput => format!(".{stem}.thatsit-{unique}"),
     }
 }
 
@@ -225,7 +240,8 @@ mod tests {
         fs::write(&input, "source").unwrap();
         fs::write(dir.path().join("photo.jpg"), "existing").unwrap();
 
-        let pending = PendingOutput::prepare(&input, &jpg(), Path::new("/nonexistent")).unwrap();
+        let pending =
+            PendingOutput::prepare(&input, &jpg(), "", Path::new("/nonexistent")).unwrap();
         assert!(!pending.fell_back);
         assert!(
             !pending.temp_path.exists(),
@@ -261,6 +277,7 @@ mod tests {
         let pending = PendingOutput::prepare(
             &input,
             &Output::File { ext: "png".into() },
+            "",
             Path::new("/nonexistent"),
         )
         .unwrap();
@@ -270,15 +287,29 @@ mod tests {
     }
 
     #[test]
+    fn suffix_is_added_to_the_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("photo.jpg");
+        fs::write(&input, "x").unwrap();
+        let pending =
+            PendingOutput::prepare(&input, &jpg(), " 50%", Path::new("/nonexistent")).unwrap();
+        fs::write(&pending.temp_path, "y").unwrap();
+        assert_eq!(pending.commit().unwrap(), dir.path().join("photo 50%.jpg"));
+        assert!(PendingOutput::prepare(&input, &Output::SameAsInput, "", Path::new("/x")).is_err());
+    }
+
+    #[test]
     fn missing_output_is_an_error_and_cleans_up() {
         let dir = tempfile::tempdir().unwrap();
         let input = dir.path().join("a.txt");
         fs::write(&input, "x").unwrap();
-        let pending = PendingOutput::prepare(&input, &jpg(), Path::new("/nonexistent")).unwrap();
+        let pending =
+            PendingOutput::prepare(&input, &jpg(), "", Path::new("/nonexistent")).unwrap();
         assert!(pending.commit().is_err());
 
         // Dropping an uncommitted output removes the partial result.
-        let pending = PendingOutput::prepare(&input, &jpg(), Path::new("/nonexistent")).unwrap();
+        let pending =
+            PendingOutput::prepare(&input, &jpg(), "", Path::new("/nonexistent")).unwrap();
         let temp = pending.temp_path.clone();
         fs::write(&temp, "partial").unwrap();
         drop(pending);
@@ -293,7 +324,8 @@ mod tests {
         fs::create_dir(dir.path().join("doc")).unwrap();
 
         let pending =
-            PendingOutput::prepare(&input, &Output::Directory, Path::new("/nonexistent")).unwrap();
+            PendingOutput::prepare(&input, &Output::Directory, "", Path::new("/nonexistent"))
+                .unwrap();
         assert!(pending.temp_path.is_dir());
         fs::write(pending.temp_path.join("doc-1.png"), "page").unwrap();
         let out = pending.commit().unwrap();
@@ -302,7 +334,8 @@ mod tests {
 
         // A file where a directory is expected is rejected.
         let pending =
-            PendingOutput::prepare(&input, &Output::Directory, Path::new("/nonexistent")).unwrap();
+            PendingOutput::prepare(&input, &Output::Directory, "", Path::new("/nonexistent"))
+                .unwrap();
         fs::remove_dir(&pending.temp_path).unwrap();
         fs::write(&pending.temp_path, "oops").unwrap();
         assert!(pending.commit().is_err());
@@ -328,6 +361,7 @@ mod tests {
             let pending = PendingOutput::prepare(
                 &input,
                 &Output::File { ext: "m4a".into() },
+                "",
                 fallback.path(),
             )
             .unwrap();

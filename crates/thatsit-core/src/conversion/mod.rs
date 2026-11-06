@@ -73,6 +73,8 @@ pub enum Origin {
 pub enum Output {
     /// A single file with this extension (lowercase, no dot).
     File { ext: String },
+    /// A single file with the same extension as the input (`output_ext = "same"`).
+    SameAsInput,
     /// A directory (e.g. one PNG per PDF page), named after the input stem.
     Directory,
 }
@@ -115,6 +117,8 @@ pub struct Conversion {
     /// Accepted file extensions (lowercase, no dot), as a fallback to `accepts`.
     pub accepts_ext: Vec<String>,
     pub output: Output,
+    /// Appended to the input stem when naming the result (`photo` + `" 50%"`).
+    pub output_suffix: String,
     /// Tools (bare binary names) that must be installed, else the conversion is hidden.
     pub requires: Vec<String>,
     /// Localized labels keyed by language tag; always contains `"en"`.
@@ -160,6 +164,20 @@ impl Conversion {
             .iter()
             .find(|(k, _)| k.eq_ignore_ascii_case(&lang))
             .map(|(_, v)| v.as_str())
+    }
+
+    /// The output for a given input: resolves `output_ext = "same"` to the input's
+    /// (lowercase) extension. `None` if the input has no usable extension.
+    pub fn output_for(&self, input: &Path) -> Option<Output> {
+        match &self.output {
+            Output::SameAsInput => input
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(str::to_ascii_lowercase)
+                .filter(|e| is_valid_ext(e))
+                .map(|ext| Output::File { ext }),
+            other => Some(other.clone()),
+        }
     }
 
     /// Builtin engine names used by the steps.
@@ -209,6 +227,8 @@ struct RawConversion {
     accepts_ext: Vec<String>,
     output_ext: Option<String>,
     output_kind: Option<String>,
+    #[serde(default)]
+    output_suffix: String,
     #[serde(default)]
     requires: Vec<String>,
     #[serde(default)]
@@ -349,6 +369,7 @@ impl RawConversion {
         // Output.
         let output = match self.output_kind.as_deref().unwrap_or("file") {
             "file" => match &self.output_ext {
+                Some(ext) if ext == "same" => Some(Output::SameAsInput),
                 Some(ext) => {
                     let ext = ext.trim_start_matches('.').to_ascii_lowercase();
                     if !is_valid_ext(&ext) {
@@ -376,6 +397,18 @@ impl RawConversion {
                 None
             }
         };
+
+        let suffix = &self.output_suffix;
+        if suffix.chars().count() > 40
+            || suffix.starts_with('.')
+            || suffix
+                .chars()
+                .any(|c| c == '/' || c == ':' || c.is_control())
+        {
+            p.push(format!(
+                "invalid output_suffix {suffix:?} (at most 40 characters, no '/', ':' or leading '.')"
+            ));
+        }
 
         // Required tools.
         for tool in &self.requires {
@@ -498,6 +531,7 @@ impl RawConversion {
             accepts: self.accepts,
             accepts_ext,
             output: output.expect("validated"),
+            output_suffix: self.output_suffix,
             requires: self.requires,
             label: self.label,
             steps,
@@ -667,6 +701,33 @@ mod tests {
         );
         // Absolute program paths need no `requires` entry.
         parse(&base("[[steps]]\ncmd = [\"/usr/bin/ditto\", \"{output}\"]")).unwrap();
+    }
+
+    #[test]
+    fn same_extension_and_suffix() {
+        let text = HEIC.replace(
+            "output_ext = \"jpg\"",
+            "output_ext = \"same\"\noutput_suffix = \" 50%\"",
+        );
+        let c = parse(&text).unwrap();
+        assert_eq!(c.output, Output::SameAsInput);
+        assert_eq!(c.output_suffix, " 50%");
+        assert_eq!(
+            c.output_for(Path::new("/a/Photo.HEIC")),
+            Some(Output::File { ext: "heic".into() })
+        );
+        assert_eq!(c.output_for(Path::new("/a/Makefile")), None);
+        assert_eq!(
+            parse(HEIC).unwrap().output_for(Path::new("/a/x.heic")),
+            Some(Output::File { ext: "jpg".into() })
+        );
+        for bad in ["\"a/b\"", "\".hidden\"", "\"x:y\""] {
+            let text = HEIC.replace(
+                "output_ext = \"jpg\"",
+                &format!("output_ext = \"jpg\"\noutput_suffix = {bad}"),
+            );
+            assert!(problems(&text).contains("output_suffix"), "{bad}");
+        }
     }
 
     #[test]
