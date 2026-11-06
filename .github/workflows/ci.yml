@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  core:
+    name: Core (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  app-macos:
+    name: App (macOS build + smoke test)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy (x86_64)
+        run: cargo clippy -p thatsit-app --target x86_64-apple-darwin -- -D warnings
+      - name: Build (arm64 + x86_64)
+        run: |
+          cargo build -p thatsit-app --target aarch64-apple-darwin
+          cargo build -p thatsit-app --target x86_64-apple-darwin
+      - name: Smoke test — launch, check the window, quit
+        run: |
+          ./target/aarch64-apple-darwin/debug/thatsit > thatsit.log 2>&1 &
+          PID=$!
+          sleep 5
+          if ! kill -0 "$PID" 2>/dev/null; then
+            echo "::error::the app exited early"; cat thatsit.log; exit 1
+          fi
+          swift scripts/ci-list-windows.swift thatsit || { cat thatsit.log; kill "$PID"; exit 1; }
+          screencapture -x screenshot.png || true
+          kill "$PID"
+          echo "--- app log ---"; cat thatsit.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-test
+          path: |
+            thatsit.log
+            screenshot.png
+          if-no-files-found: ignore
