@@ -55,6 +55,36 @@ jobs:
           screencapture -x screenshot.png || true
           kill "$PID"
           echo "--- app log ---"; cat thatsit.log
+      - name: Visual self-test — ring opened on a HEIC photo (light and dark)
+        run: |
+          # A few extra user conversions so the ring shows a realistic number of sectors.
+          DIR="$HOME/Library/Application Support/io.github.federicosimoni.thatsit/conversions"
+          mkdir -p "$DIR"
+          i=0
+          for spec in "png|photo|Convert to PNG" "pdf|doc|Convert to PDF" "half|arrow.down.right.and.arrow.up.left|Resize 50%" "strip|location.slash|Strip metadata"; do
+            IFS='|' read -r name icon label <<< "$spec"
+            printf 'schema = 1\nid = "demo.%s"\ncategory = "images"\nicon = "%s"\naccepts = ["public.image"]\noutput_ext = "out"\nlabel.en = "%s"\n[[steps]]\ncmd = ["/usr/bin/true", "{output}"]\n' \
+              "$name" "$icon" "$label" > "$DIR/demo-$i.toml"
+            i=$((i+1))
+          done
+          capture() {
+            THATSIT_DEMO=IMG_0423.heic ./target/aarch64-apple-darwin/debug/thatsit > "demo-$1.log" 2>&1 &
+            PID=$!
+            sleep 4
+            RECT=$(swift scripts/ci-list-windows.swift thatsit | sed -n 's/^RECT //p' | head -1)
+            echo "capture rect: $RECT"
+            screencapture -x -R"$RECT" "ring-$1.png" || true
+            kill "$PID" || true
+            cat "demo-$1.log"
+            if [ -f "ring-$1.png" ]; then
+              sips -s format jpeg -s formatOptions 70 "ring-$1.png" --out "ring-$1.jpg" > /dev/null
+              echo "BEGIN-RING-$1"; base64 -i "ring-$1.jpg" | fold -w 2000; echo "END-RING-$1"
+            fi
+          }
+          capture light
+          osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to true' || true
+          sleep 2
+          capture dark
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -62,4 +92,6 @@ jobs:
           path: |
             thatsit.log
             screenshot.png
+            demo-*.log
+            ring-*.png
           if-no-files-found: ignore

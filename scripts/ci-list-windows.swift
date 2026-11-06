@@ -15,7 +15,13 @@ for w in info where (w[kCGWindowOwnerName as String] as? String) == owner {
     let bounds = w[kCGWindowBounds as String] as? [String: Any] ?? [:]
     let onScreen = w[kCGWindowIsOnscreen as String] as? Bool ?? false
     print("window: layer=\(layer) onscreen=\(onScreen) bounds=\(bounds)")
-    if layer == desktopIconLevel + 1 && onScreen { found = true }
+    if layer == desktopIconLevel + 1 && onScreen {
+        found = true
+        // Capture rectangle for `screencapture -R`, with a small margin.
+        let x = (bounds["X"] as? Double ?? 0) - 16, y = (bounds["Y"] as? Double ?? 0) - 16
+        let w = (bounds["Width"] as? Double ?? 0) + 32, h = (bounds["Height"] as? Double ?? 0) + 32
+        print("RECT \(Int(x)),\(Int(y)),\(Int(w)),\(Int(h))")
+    }
 }
 if !found {
     print("no on-screen window at desktop icon level + 1 found for \(owner)")
