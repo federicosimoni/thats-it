@@ -6,15 +6,17 @@
 mod image;
 mod markdown;
 mod metadata;
+#[cfg(feature = "optimize-png")]
 mod png;
 mod svg;
 
 use crate::pipeline::{CancelToken, EngineRunner, StepContext};
 
 /// Names of the engines implemented here.
-pub const CORE_ENGINES: [&str; 5] = [
+pub const CORE_ENGINES: &[&str] = &[
     "builtin:image",
     "builtin:strip-metadata",
+    #[cfg(feature = "optimize-png")]
     "builtin:optimize-png",
     "builtin:svg-to-png",
     "builtin:markdown-to-html",
@@ -35,6 +37,7 @@ impl EngineRunner for CoreEngines {
         match name {
             "builtin:image" => image::run(args, ctx),
             "builtin:strip-metadata" => metadata::run(ctx),
+            #[cfg(feature = "optimize-png")]
             "builtin:optimize-png" => png::run(args, ctx),
             "builtin:svg-to-png" => svg::run(args, ctx),
             "builtin:markdown-to-html" => markdown::run(ctx),
@@ -179,7 +182,7 @@ mod tests {
         let fake = Fake;
         let chain = Chain::new()
             .with(&["builtin:fake"], &fake)
-            .with(&CORE_ENGINES, &CoreEngines);
+            .with(CORE_ENGINES, &CoreEngines);
         let ctx = test_util::ctx(Path::new("/x/a.md"), Path::new("/x/out"));
         let cancel = CancelToken::new();
         assert_eq!(

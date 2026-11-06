@@ -11,7 +11,7 @@ authors = ["Federico Simoni"]
 rust-version = "1.85"
 
 [workspace.dependencies]
-thatsit-core = { path = "crates/thatsit-core" }
+thatsit-core = { path = "crates/thatsit-core", default-features = false }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

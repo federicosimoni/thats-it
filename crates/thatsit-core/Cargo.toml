@@ -13,9 +13,14 @@ serde = { version = "1.0.229", features = ["derive"] }
 toml = "1.2"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "tiff", "bmp", "gif", "webp"] }
 img-parts = "0.4"
-oxipng = { version = "10.2", default-features = false, features = ["parallel"] }
+oxipng = { version = "10.2", default-features = false, features = ["parallel"], optional = true }
 resvg = "0.49"
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+
+[features]
+default = ["optimize-png"]
+# builtin:optimize-png (oxipng builds a C library; disable to cross-check from Linux).
+optimize-png = ["dep:oxipng"]
 
 [dev-dependencies]
 tempfile = "3.27"

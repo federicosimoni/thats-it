@@ -22,5 +22,9 @@ objc2-core-foundation = "0.3.2"
 objc2-quartz-core = "0.3.2"
 objc2-uniform-type-identifiers = "0.3.2"
 
+[features]
+default = ["optimize-png"]
+optimize-png = ["thatsit-core/optimize-png"]
+
 [lints]
 workspace = true
