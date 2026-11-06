@@ -21,6 +21,10 @@ objc2-core-graphics = "0.3.2"
 objc2-core-foundation = "0.3.2"
 objc2-quartz-core = "0.3.2"
 objc2-uniform-type-identifiers = "0.3.2"
+objc2-pdf-kit = "0.3.2"
+objc2-user-notifications = "0.3.2"
+dispatch2 = "0.3.1"
+block2 = "0.6.2"
 
 [features]
 default = ["optimize-png"]

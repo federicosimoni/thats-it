@@ -1,10 +1,15 @@
 //! Loads the conversion registry and checks which tools are installed.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use objc2_foundation::{NSBundle, NSLocale};
+use objc2_app_kit::NSImage;
+use objc2_foundation::{NSBundle, NSLocale, NSString};
 use thatsit_core::conversion::{Availability, Conversion, Origin, Registry};
+use thatsit_core::engines::CORE_ENGINES;
 use thatsit_core::tools::ToolFinder;
+
+use crate::app_engines::APP_ENGINES;
 
 use crate::log;
 
@@ -15,9 +20,8 @@ pub const BUNDLE_ID: &str = "io.github.federicosimoni.thatsit";
 pub struct Catalog {
     pub registry: Registry,
     pub availability: Availability,
-    /// Used by the job runner (Phase 3) to resolve tool paths.
-    #[allow(dead_code)]
-    pub tools: ToolFinder,
+    /// Shared with the job thread to resolve tool paths.
+    pub tools: Arc<ToolFinder>,
     /// Preferred UI languages, most preferred first (for conversion labels).
     pub languages: Vec<String>,
 }
@@ -42,7 +46,7 @@ impl Catalog {
             ));
         }
 
-        let tools = ToolFinder::from_env();
+        let tools = Arc::new(ToolFinder::from_env());
         let availability = availability_for(&registry, &tools);
         for c in registry.conversions() {
             let missing = availability.missing_tools(c);
@@ -58,6 +62,17 @@ impl Catalog {
                         .collect::<Vec<_>>()
                         .join(", ")
                 ));
+            }
+        }
+        for c in registry.conversions() {
+            if let Some(icon) = &c.icon
+                && NSImage::imageWithSystemSymbolName_accessibilityDescription(
+                    &NSString::from_str(icon),
+                    None,
+                )
+                .is_none()
+            {
+                log::info(format!("{}: unknown SF Symbol {icon:?}", c.id));
             }
         }
         log::info(format!(
@@ -98,7 +113,11 @@ fn availability_for(registry: &Registry, tools: &ToolFinder) -> Availability {
             }
         }
     }
-    // Builtin engines arrive in Phase 3.
+    availability.engines = CORE_ENGINES
+        .iter()
+        .chain(APP_ENGINES)
+        .map(|e| e.to_string())
+        .collect();
     availability
 }
 

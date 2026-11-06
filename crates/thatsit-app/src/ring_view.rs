@@ -11,10 +11,13 @@
 //! `thatsit_core::menu`; this view only renders it.
 
 use std::cell::{Cell, OnceCell, RefCell};
+use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
+use dispatch2::{DispatchQueue, DispatchTime};
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, ProtocolObject};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send};
@@ -42,6 +45,8 @@ use thatsit_core::menu::{DropOutcome, Entry, Interaction, Level, Menu, ViewState
 
 use crate::catalog::Catalog;
 use crate::files::{self, DraggedFile};
+use crate::jobs::{Batch, Event, FileResult, Jobs};
+use crate::notify;
 use crate::{log, prefs};
 
 /// Side of the window while collapsed, in points.
@@ -101,6 +106,15 @@ pub struct RingIvars {
     labels: OnceCell<Retained<NSView>>,
     glyph: OnceCell<Retained<NSImageView>>,
     centre_glyph: OnceCell<Retained<NSImageView>>,
+    /// Progress ring around the collapsed disc while converting.
+    progress: OnceCell<Retained<CAShapeLayer>>,
+    jobs: Jobs,
+    /// (done, total) of the running batch, if any.
+    busy: Cell<Option<(usize, usize)>>,
+    /// Glyph shown briefly after a batch (success / failure), with a generation counter
+    /// so a stale timer does not clear a newer one.
+    flash: Cell<Option<(&'static str, u64)>>,
+    flash_gen: Cell<u64>,
     sectors: RefCell<Vec<SectorViews>>,
     session: RefCell<Option<Session>>,
     expanded: Cell<bool>,
@@ -213,6 +227,7 @@ define_class!(
 impl RingView {
     pub fn new(mtm: MainThreadMarker, catalog: Rc<Catalog>) -> Retained<Self> {
         let frame = NSRect::new(NSPoint::ZERO, NSSize::new(COLLAPSED_SIZE, COLLAPSED_SIZE));
+        let jobs = Jobs::start(Arc::clone(&catalog.tools), on_job_event);
         let this = Self::alloc(mtm).set_ivars(RingIvars {
             catalog,
             glass: OnceCell::new(),
@@ -222,6 +237,11 @@ impl RingView {
             labels: OnceCell::new(),
             glyph: OnceCell::new(),
             centre_glyph: OnceCell::new(),
+            progress: OnceCell::new(),
+            jobs,
+            busy: Cell::new(None),
+            flash: Cell::new(None),
+            flash_gen: Cell::new(0),
             sectors: RefCell::new(Vec::new()),
             session: RefCell::new(None),
             expanded: Cell::new(false),
@@ -261,6 +281,15 @@ impl RingView {
         }
         let centre = CAShapeLayer::new();
         ring_layer.addSublayer(&centre);
+        let progress = CAShapeLayer::new();
+        progress.setFillColor(None);
+        progress.setLineWidth(3.0);
+        progress.setLineCap(&NSString::from_str("round"));
+        progress.setStrokeEnd(0.0);
+        progress.setHidden(true);
+        if let Some(host) = shapes.layer() {
+            host.addSublayer(&progress);
+        }
         self.addSubview(&shapes);
 
         let labels = NSView::initWithFrame(NSView::alloc(mtm), bounds);
@@ -279,6 +308,7 @@ impl RingView {
         let _ = iv.labels.set(labels);
         let _ = iv.glyph.set(glyph);
         let _ = iv.centre_glyph.set(centre_glyph);
+        let _ = iv.progress.set(progress);
     }
 
     /// Positions every subview for the current size and state.
@@ -331,6 +361,27 @@ impl RingView {
             if let Some(g) = iv.centre_glyph.get() {
                 g.setFrame(square_around(c, 24.0));
                 g.setHidden(!expanded);
+            }
+            if let Some(progress) = iv.progress.get() {
+                // Starts at 12 o'clock and runs clockwise.
+                let path = CGMutablePath::new();
+                let r = COLLAPSED_DISC / 2.0 - 2.5;
+                let top = std::f64::consts::FRAC_PI_2;
+                // SAFETY: a null transform pointer is explicitly allowed by CGPath.
+                unsafe {
+                    CGMutablePath::add_arc(
+                        Some(&path),
+                        std::ptr::null(),
+                        c.x,
+                        c.y,
+                        r,
+                        top,
+                        top - std::f64::consts::TAU,
+                        true,
+                    );
+                }
+                progress.setPath(Some(&path));
+                progress.setHidden(expanded || iv.busy.get().is_none());
             }
         });
     }
@@ -447,6 +498,9 @@ impl RingView {
         }
         if let Some(g) = iv.centre_glyph.get() {
             g.setContentTintColor(Some(&NSColor::secondaryLabelColor()));
+        }
+        if let Some(progress) = iv.progress.get() {
+            progress.setStrokeColor(Some(&palette.progress));
         }
         if let Some(g) = iv.glyph.get() {
             let color = if iv.unsupported.get() {
@@ -578,11 +632,20 @@ impl RingView {
             DropOutcome::Run(i) => {
                 let m = &s.matches[i];
                 log::info(format!(
-                    "DROP → run {} ({}) on {} file(s) — conversions run from Phase 3",
+                    "DROP → run {} ({}) on {} file(s)",
                     m.id,
                     m.label,
                     s.files.len()
                 ));
+                let iv = self.ivars();
+                let Some(conversion) = iv.catalog.registry.get(&m.id).cloned() else {
+                    return false;
+                };
+                iv.jobs.submit(Batch {
+                    conversion,
+                    label: m.label.clone(),
+                    files: s.files.iter().map(|f| PathBuf::from(&f.path)).collect(),
+                });
                 true
             }
             DropOutcome::Cancel => {
@@ -605,15 +668,79 @@ impl RingView {
             return;
         }
         iv.unsupported.set(unsupported);
+        self.update_glyph();
+        self.refresh_colors();
+    }
+
+    /// The collapsed glyph: not-supported, a brief result flash, or the normal tray.
+    fn update_glyph(&self) {
+        let iv = self.ivars();
+        let name = if iv.unsupported.get() {
+            "nosign"
+        } else if let Some((name, _)) = iv.flash.get() {
+            name
+        } else {
+            "tray.and.arrow.down"
+        };
         if let Some(g) = iv.glyph.get() {
-            let name = if unsupported {
-                "nosign"
-            } else {
-                "tray.and.arrow.down"
-            };
             set_symbol(g, name, 30.0);
         }
-        self.refresh_colors();
+    }
+
+    // -----------------------------------------------------------------------------------
+    // Jobs
+
+    fn job_event(&self, event: Event) {
+        let iv = self.ivars();
+        match event {
+            Event::Progress { done, total } => {
+                iv.busy.set((done < total).then_some((done, total)));
+                if let Some(p) = iv.progress.get() {
+                    // Show a sliver at the start so the ring is visible immediately.
+                    let fraction = if total == 0 {
+                        1.0
+                    } else {
+                        done as f64 / total as f64
+                    };
+                    p.setStrokeEnd(fraction.max(0.04));
+                    p.setHidden(iv.expanded.get() || iv.busy.get().is_none());
+                }
+            }
+            Event::Finished { label, results } => {
+                iv.busy.set(None);
+                if let Some(p) = iv.progress.get() {
+                    p.setHidden(true);
+                    p.setStrokeEnd(0.0);
+                }
+                let summary = summarize(&label, &results, iv.catalog.prefers_italian());
+                self.flash(if summary.failed > 0 {
+                    "exclamationmark.triangle"
+                } else if summary.ok > 0 {
+                    "checkmark.circle"
+                } else {
+                    "xmark.circle"
+                });
+                notify::post("That's it", &summary.text);
+            }
+        }
+    }
+
+    fn flash(&self, glyph: &'static str) {
+        let iv = self.ivars();
+        let generation = iv.flash_gen.get() + 1;
+        iv.flash_gen.set(generation);
+        iv.flash.set(Some((glyph, generation)));
+        self.update_glyph();
+        if let Ok(when) = DispatchTime::try_from(Duration::from_millis(2500)) {
+            let _ = DispatchQueue::main().after(when, move || {
+                with_view(|v| {
+                    if v.ivars().flash.get().is_some_and(|(_, g)| g == generation) {
+                        v.ivars().flash.set(None);
+                        v.update_glyph();
+                    }
+                })
+            });
+        }
     }
 
     /// Hit-test a point in window coordinates against the current ring.
@@ -811,6 +938,7 @@ struct Palette {
     centre_on: CFRetained<CGColor>,
     text: Retained<NSColor>,
     hl_text: Retained<NSColor>,
+    progress: CFRetained<CGColor>,
 }
 
 impl Palette {
@@ -835,6 +963,13 @@ impl Palette {
                 rgba(0.0, 0.0, 0.0, 0.14),
             )
         };
+        let progress = if accent {
+            accent_cgcolor()
+        } else if dark {
+            rgba(0.96, 0.96, 0.97, 1.0)
+        } else {
+            rgba(0.23, 0.23, 0.24, 1.0)
+        };
         let (hl_fill, hl_stroke, hl_width, hl_text) = if accent {
             let a = accent_cgcolor();
             (a.clone(), a, 0.0, NSColor::whiteColor())
@@ -851,6 +986,7 @@ impl Palette {
             centre_on,
             text: NSColor::labelColor(),
             hl_text,
+            progress,
         }
     }
 }
@@ -1007,5 +1143,113 @@ fn to_rect(r: NSRect) -> geometry::Rect {
         y: r.origin.y,
         w: r.size.width,
         h: r.size.height,
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Main-thread access for job events
+
+thread_local! {
+    static VIEW: RefCell<Option<Retained<RingView>>> = const { RefCell::new(None) };
+}
+
+/// Registers the view that receives job events (main thread).
+pub fn register(view: &RingView) {
+    VIEW.with(|v| *v.borrow_mut() = Some(view.retain()));
+}
+
+fn with_view(f: impl FnOnce(&RingView)) {
+    VIEW.with(|v| {
+        if let Some(view) = v.borrow().as_ref() {
+            f(view);
+        }
+    });
+}
+
+/// Called on the main thread by the job worker.
+fn on_job_event(event: Event) {
+    with_view(|v| v.job_event(event));
+}
+
+struct Summary {
+    ok: usize,
+    failed: usize,
+    text: String,
+}
+
+/// Notification text (English/Italian until Fluent lands in Phase 4).
+fn summarize(label: &str, results: &[FileResult], italian: bool) -> Summary {
+    let ok: Vec<&PathBuf> = results
+        .iter()
+        .filter_map(|r| match r {
+            FileResult::Done { output, .. } => Some(output),
+            _ => None,
+        })
+        .collect();
+    let fell_back = results.iter().any(|r| {
+        matches!(
+            r,
+            FileResult::Done {
+                fell_back: true,
+                ..
+            }
+        )
+    });
+    let failures: Vec<String> = results
+        .iter()
+        .filter_map(|r| match r {
+            FileResult::Failed { input, error } => Some(format!(
+                "{}: {error}",
+                input
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            )),
+            _ => None,
+        })
+        .collect();
+    let cancelled = results
+        .iter()
+        .filter(|r| matches!(r, FileResult::Cancelled))
+        .count();
+    let name = |p: &PathBuf| {
+        p.file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    };
+
+    let mut parts = Vec::new();
+    match (ok.len(), italian) {
+        (0, _) => {}
+        (1, false) => parts.push(format!("{label}: saved {}", name(ok[0]))),
+        (1, true) => parts.push(format!("{label}: salvato {}", name(ok[0]))),
+        (n, false) => parts.push(format!("{label}: {n} files converted")),
+        (n, true) => parts.push(format!("{label}: {n} file convertiti")),
+    }
+    if fell_back {
+        parts.push(if italian {
+            "La cartella originale non è scrivibile: salvato in Download.".to_owned()
+        } else {
+            "The original folder is not writable: saved to Downloads.".to_owned()
+        });
+    }
+    match (failures.len(), italian) {
+        (0, _) => {}
+        (1, false) => parts.push(format!("Failed: {}", failures[0])),
+        (1, true) => parts.push(format!("Non riuscito: {}", failures[0])),
+        (n, false) => parts.push(format!("{n} files failed (see the log)")),
+        (n, true) => parts.push(format!("{n} file non riusciti (vedi il log)")),
+    }
+    if cancelled > 0 {
+        parts.push(if italian {
+            "Annullato.".to_owned()
+        } else {
+            "Cancelled.".to_owned()
+        });
+    }
+    Summary {
+        ok: ok.len(),
+        failed: failures.len(),
+        text: parts.join(" "),
     }
 }

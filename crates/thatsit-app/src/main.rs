@@ -1,11 +1,19 @@
 //! *That's it* — drag & drop file converter for macOS.
 
 #[cfg(target_os = "macos")]
+mod app_engines;
+#[cfg(target_os = "macos")]
 mod catalog;
+#[cfg(target_os = "macos")]
+mod cli;
 #[cfg(target_os = "macos")]
 mod files;
 #[cfg(target_os = "macos")]
+mod jobs;
+#[cfg(target_os = "macos")]
 mod log;
+#[cfg(target_os = "macos")]
+mod notify;
 #[cfg(target_os = "macos")]
 mod prefs;
 #[cfg(target_os = "macos")]
@@ -26,7 +34,20 @@ fn main() {
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
 
     let catalog = Rc::new(catalog::Catalog::load());
+
+    // Headless mode used by CI and handy for debugging conversions:
+    // `thatsit --convert <conversion-id> <file>...` runs one batch through the same job
+    // path as the widget, prints the results and exits (1 if anything failed).
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("--convert") {
+        cli::convert(&catalog, &args[1..]);
+        app.run();
+        return;
+    }
+
+    notify::init();
     let widget = window::Widget::new(mtm, catalog);
+    ring_view::register(widget.view());
     widget.show();
 
     // Visual self-test used by CI: `THATSIT_DEMO=photo.heic[,more files]` opens the ring
