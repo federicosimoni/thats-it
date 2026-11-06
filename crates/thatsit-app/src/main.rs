@@ -17,7 +17,11 @@ mod notify;
 #[cfg(target_os = "macos")]
 mod prefs;
 #[cfg(target_os = "macos")]
+mod prefs_window;
+#[cfg(target_os = "macos")]
 mod ring_view;
+#[cfg(target_os = "macos")]
+mod status;
 #[cfg(target_os = "macos")]
 mod window;
 
@@ -48,7 +52,13 @@ fn main() {
     notify::init();
     let widget = window::Widget::new(mtm, catalog);
     ring_view::register(widget.view());
-    widget.show();
+    if !prefs::widget_hidden() {
+        widget.show();
+    }
+    let status = status::StatusController::install(mtm, widget.window(), widget.view_retained());
+    if std::env::var_os("THATSIT_DEMO_PREFS").is_some() {
+        status.show_preferences();
+    }
 
     // Visual self-test used by CI: `THATSIT_DEMO=photo.heic[,more files]` opens the ring
     // as if those files were dragged over it, with the first sector highlighted.
