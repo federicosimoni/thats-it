@@ -1,19 +1,22 @@
 //! *That's it* — drag & drop file converter for macOS.
-//!
-//! Phase 0 spike: a transparent widget on the desktop layer that accepts file drags and
-//! logs file paths, UTTypes, cursor angle and the computed sector index.
 
 #[cfg(target_os = "macos")]
-mod drop_view;
+mod catalog;
 #[cfg(target_os = "macos")]
 mod files;
 #[cfg(target_os = "macos")]
 mod log;
 #[cfg(target_os = "macos")]
+mod prefs;
+#[cfg(target_os = "macos")]
+mod ring_view;
+#[cfg(target_os = "macos")]
 mod window;
 
 #[cfg(target_os = "macos")]
 fn main() {
+    use std::rc::Rc;
+
     use objc2::MainThreadMarker;
     use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
 
@@ -22,9 +25,19 @@ fn main() {
     // No Dock icon, no Cmd+Tab entry (the bundled app will also set LSUIElement).
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
 
-    let widget = window::Widget::new(mtm);
+    let catalog = Rc::new(catalog::Catalog::load());
+    let widget = window::Widget::new(mtm, catalog);
     widget.show();
-    log::info("widget ready — drag files from the Finder onto the circle (Ctrl+C to quit)");
+
+    // Visual self-test used by CI: `THATSIT_DEMO=photo.heic[,more files]` opens the ring
+    // as if those files were dragged over it, with the first sector highlighted.
+    if let Ok(demo) = std::env::var("THATSIT_DEMO") {
+        let paths: Vec<String> = demo.split(',').map(str::to_owned).collect();
+        log::info(format!("demo mode: {paths:?}"));
+        widget.view().start_demo(&paths, true);
+    } else {
+        log::info("widget ready — drag files from the Finder onto the circle (Ctrl+C to quit)");
+    }
 
     app.run();
     drop(widget);
