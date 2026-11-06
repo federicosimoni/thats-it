@@ -321,4 +321,13 @@ the desktop), conversion options (quality sliders), Shortcuts integration, Windo
 - Notifications need a bundled, signed app.
 - **Open — ask the owner when the relevant phase starts:**
   - Does he have (or will he get) an Apple Developer account for signing/notarization? (Phase 5)
-  - Visual style of the widget and app icon (Phase 2) — propose 2–3 directions with mockups.
+
+**Visual style — DECIDED (Phase 2): direction A "Native glass".**
+- Ring and collapsed icon use real macOS vibrancy (`NSVisualEffectView`, behind-window blending),
+  thin separators, SF Symbols, system font; adapts to light/dark automatically.
+- Highlighted sector: **denser glass with a border** by default. Preference
+  "Use system accent color" (**off by default**) switches the highlight and the progress ring to
+  `NSColor.controlAccentColor`.
+- Collapsed icon: glass disc with a "tray with down arrow" glyph; progress ring around it while
+  converting. App icon follows the same motif.
+- Mockups: https://claude.ai/artifact/ERwoMcB9cLcUcGsqf9wpw9 (private to the owner).
