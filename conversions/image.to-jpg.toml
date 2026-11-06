@@ -1,0 +1,22 @@
+# Raster image → JPG, with the pure-Rust image engine.
+schema     = 1
+id         = "image.to-jpg"
+category   = "images"
+icon       = "photo"
+accepts    = [
+  "public.png",
+  "public.tiff",
+  "com.microsoft.bmp",
+  "com.compuserve.gif",
+  "org.webmproject.webp",
+]
+accepts_ext = ["png", "tif", "tiff", "bmp", "gif", "webp"]
+output_ext = "jpg"
+
+[label]
+en = "Convert to JPG"
+it = "Converti in JPG"
+
+[[steps]]
+engine = "builtin:image"
+args = { format = "jpeg", quality = 90 }

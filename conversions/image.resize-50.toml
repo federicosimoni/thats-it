@@ -1,0 +1,24 @@
+# Resize to 50% (same format), with the pure-Rust image engine.
+schema     = 1
+id         = "image.resize-50"
+category   = "images"
+icon       = "arrow.down.right.and.arrow.up.left"
+accepts    = [
+  "public.png",
+  "public.jpeg",
+  "public.tiff",
+  "com.microsoft.bmp",
+  "com.compuserve.gif",
+  "org.webmproject.webp",
+]
+accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp"]
+output_ext = "same"
+output_suffix = " 50%"
+
+[label]
+en = "Resize 50%"
+it = "Riduci al 50%"
+
+[[steps]]
+engine = "builtin:image"
+args = { scale = 0.5 }

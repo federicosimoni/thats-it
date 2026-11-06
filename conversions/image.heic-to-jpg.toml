@@ -1,4 +1,4 @@
-# HEIC (iPhone photos) → JPG, using the built-in `sips` tool.
+# HEIC/HEIF (iPhone photos) → JPG, using the built-in `sips` tool.
 schema     = 1
 id         = "image.heic-to-jpg"
 category   = "images"

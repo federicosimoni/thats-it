@@ -1,0 +1,15 @@
+# Markdown → standalone HTML page (builtin:markdown-to-html).
+schema     = 1
+id         = "document.markdown-to-html"
+category   = "documents"
+icon       = "chevron.left.forwardslash.chevron.right"
+accepts    = ["net.daringfireball.markdown"]
+accepts_ext = ["md", "markdown"]
+output_ext = "html"
+
+[label]
+en = "Convert to HTML"
+it = "Converti in HTML"
+
+[[steps]]
+engine = "builtin:markdown-to-html"

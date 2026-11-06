@@ -1,0 +1,22 @@
+# Document → OpenDocument (ODT), using the built-in `textutil` tool.
+schema     = 1
+id         = "document.to-odt"
+category   = "documents"
+icon       = "doc.text"
+accepts    = [
+  "org.openxmlformats.wordprocessingml.document",
+  "com.microsoft.word.doc",
+  "public.rtf",
+  "public.html",
+  "public.plain-text",
+]
+accepts_ext = ["docx", "doc", "rtf", "html", "htm", "txt"]
+output_ext = "odt"
+requires   = ["textutil"]
+
+[label]
+en = "Convert to OpenDocument (ODT)"
+it = "Converti in OpenDocument (ODT)"
+
+[[steps]]
+cmd = ["textutil", "-convert", "odt", "-output", "{output}", "{input}"]

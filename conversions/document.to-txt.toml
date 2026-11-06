@@ -1,0 +1,22 @@
+# Document → plain text, using the built-in `textutil` tool.
+schema     = 1
+id         = "document.to-txt"
+category   = "documents"
+icon       = "doc.text"
+accepts    = [
+  "org.openxmlformats.wordprocessingml.document",
+  "com.microsoft.word.doc",
+  "public.rtf",
+  "org.oasis-open.opendocument.text",
+  "public.html",
+]
+accepts_ext = ["docx", "doc", "rtf", "odt", "html", "htm"]
+output_ext = "txt"
+requires   = ["textutil"]
+
+[label]
+en = "Convert to plain text"
+it = "Converti in testo semplice"
+
+[[steps]]
+cmd = ["textutil", "-convert", "txt", "-output", "{output}", "{input}"]

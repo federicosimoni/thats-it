@@ -1,0 +1,20 @@
+# Markdown → HTML → PDF.
+schema     = 1
+id         = "document.markdown-to-pdf"
+category   = "documents"
+icon       = "doc.richtext"
+accepts    = ["net.daringfireball.markdown"]
+accepts_ext = ["md", "markdown"]
+output_ext = "pdf"
+
+[label]
+en = "Convert to PDF"
+it = "Converti in PDF"
+
+[[steps]]
+engine = "builtin:markdown-to-html"
+args = { output = "{tmpdir}/{stem}.html" }
+
+[[steps]]
+engine = "builtin:doc-to-pdf"
+args = { input = "{tmpdir}/{stem}.html" }

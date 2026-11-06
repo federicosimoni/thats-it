@@ -1,0 +1,24 @@
+# Image → PDF, using the built-in `sips` tool.
+schema     = 1
+id         = "image.to-pdf"
+category   = "images"
+icon       = "doc.richtext"
+accepts    = [
+  "public.png",
+  "public.jpeg",
+  "public.tiff",
+  "public.heic",
+  "public.heif",
+  "com.microsoft.bmp",
+  "com.compuserve.gif",
+]
+accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "heic", "heif", "bmp", "gif"]
+output_ext = "pdf"
+requires   = ["sips"]
+
+[label]
+en = "Convert to PDF"
+it = "Converti in PDF"
+
+[[steps]]
+cmd = ["sips", "-s", "format", "pdf", "{input}", "--out", "{output}"]

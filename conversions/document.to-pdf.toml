@@ -1,0 +1,22 @@
+# Document → PDF, laid out on A4/Letter pages by AppKit (builtin:doc-to-pdf).
+schema     = 1
+id         = "document.to-pdf"
+category   = "documents"
+icon       = "doc.richtext"
+accepts    = [
+  "org.openxmlformats.wordprocessingml.document",
+  "com.microsoft.word.doc",
+  "public.rtf",
+  "org.oasis-open.opendocument.text",
+  "public.html",
+  "public.plain-text",
+]
+accepts_ext = ["docx", "doc", "rtf", "odt", "html", "htm", "txt"]
+output_ext = "pdf"
+
+[label]
+en = "Convert to PDF"
+it = "Converti in PDF"
+
+[[steps]]
+engine = "builtin:doc-to-pdf"

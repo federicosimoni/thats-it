@@ -1,0 +1,25 @@
+# Shrink so the longest side is at most 1920 px (same format), using `sips`.
+schema     = 1
+id         = "image.max-1920"
+category   = "images"
+icon       = "arrow.down.right.and.arrow.up.left"
+accepts    = [
+  "public.png",
+  "public.jpeg",
+  "public.tiff",
+  "public.heic",
+  "public.heif",
+  "com.microsoft.bmp",
+  "com.compuserve.gif",
+]
+accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "heic", "heif", "bmp", "gif"]
+output_ext = "same"
+output_suffix = " 1920px"
+requires   = ["sips"]
+
+[label]
+en = "Resize to max 1920 px"
+it = "Riduci a max 1920 px"
+
+[[steps]]
+cmd = ["sips", "-Z", "1920", "{input}", "--out", "{output}"]

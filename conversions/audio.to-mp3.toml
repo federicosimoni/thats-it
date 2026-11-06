@@ -1,0 +1,24 @@
+# Audio → MP3 (VBR ~190 kbps). Needs ffmpeg: `brew install ffmpeg`.
+schema     = 1
+id         = "audio.to-mp3"
+category   = "audio-video"
+icon       = "waveform"
+accepts    = [
+  "com.microsoft.waveform-audio",
+  "public.aiff-audio",
+  "public.aifc-audio",
+  "com.apple.coreaudio-format",
+  "com.apple.m4a-audio",
+  "org.xiph.flac",
+]
+accepts_ext = ["wav", "aif", "aiff", "aifc", "caf", "m4a", "flac"]
+output_ext = "mp3"
+requires   = ["ffmpeg"]
+
+[label]
+en = "Convert to MP3"
+it = "Converti in MP3"
+
+[[steps]]
+cmd = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-i", "{input}", "-vn", "-codec:a", "libmp3lame", "-q:a", "2", "{output}"]
+timeout_secs = 1800

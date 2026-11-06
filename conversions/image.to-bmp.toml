@@ -1,0 +1,22 @@
+# Raster image → BMP, with the pure-Rust image engine.
+schema     = 1
+id         = "image.to-bmp"
+category   = "images"
+icon       = "photo"
+accepts    = [
+  "public.png",
+  "public.jpeg",
+  "public.tiff",
+  "com.compuserve.gif",
+  "org.webmproject.webp",
+]
+accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "gif", "webp"]
+output_ext = "bmp"
+
+[label]
+en = "Convert to BMP"
+it = "Converti in BMP"
+
+[[steps]]
+engine = "builtin:image"
+args = { format = "bmp" }

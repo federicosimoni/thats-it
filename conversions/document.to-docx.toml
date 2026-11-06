@@ -1,0 +1,22 @@
+# Document → Word (DOCX), using the built-in `textutil` tool.
+schema     = 1
+id         = "document.to-docx"
+category   = "documents"
+icon       = "doc.text"
+accepts    = [
+  "com.microsoft.word.doc",
+  "public.rtf",
+  "org.oasis-open.opendocument.text",
+  "public.html",
+  "public.plain-text",
+]
+accepts_ext = ["doc", "rtf", "odt", "html", "htm", "txt"]
+output_ext = "docx"
+requires   = ["textutil"]
+
+[label]
+en = "Convert to Word (DOCX)"
+it = "Converti in Word (DOCX)"
+
+[[steps]]
+cmd = ["textutil", "-convert", "docx", "-output", "{output}", "{input}"]

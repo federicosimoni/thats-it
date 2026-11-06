@@ -1,0 +1,16 @@
+# HEIC/HEIF (iPhone photos) → PNG, using the built-in `sips` tool.
+schema     = 1
+id         = "image.heic-to-png"
+category   = "images"
+icon       = "photo"
+accepts    = ["public.heic", "public.heif"]
+accepts_ext = ["heic", "heif"]
+output_ext = "png"
+requires   = ["sips"]
+
+[label]
+en = "Convert to PNG"
+it = "Converti in PNG"
+
+[[steps]]
+cmd = ["sips", "-s", "format", "png", "{input}", "--out", "{output}"]

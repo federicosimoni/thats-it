@@ -1,0 +1,23 @@
+# Audio → WAV, using the built-in `afconvert` tool.
+schema     = 1
+id         = "audio.to-wav"
+category   = "audio-video"
+icon       = "waveform"
+accepts    = [
+  "public.aiff-audio",
+  "public.aifc-audio",
+  "com.apple.coreaudio-format",
+  "com.apple.m4a-audio",
+  "public.mp3",
+  "org.xiph.flac",
+]
+accepts_ext = ["aif", "aiff", "aifc", "caf", "m4a", "mp3", "flac"]
+output_ext = "wav"
+requires   = ["afconvert"]
+
+[label]
+en = "Convert to WAV"
+it = "Converti in WAV"
+
+[[steps]]
+cmd = ["afconvert", "-f", "WAVE", "-d", "LEI16", "{input}", "{output}"]

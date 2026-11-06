@@ -1,0 +1,22 @@
+# Audio → AIFF, using the built-in `afconvert` tool.
+schema     = 1
+id         = "audio.to-aiff"
+category   = "audio-video"
+icon       = "waveform"
+accepts    = [
+  "com.microsoft.waveform-audio",
+  "com.apple.coreaudio-format",
+  "com.apple.m4a-audio",
+  "public.mp3",
+  "org.xiph.flac",
+]
+accepts_ext = ["wav", "caf", "m4a", "mp3", "flac"]
+output_ext = "aiff"
+requires   = ["afconvert"]
+
+[label]
+en = "Convert to AIFF"
+it = "Converti in AIFF"
+
+[[steps]]
+cmd = ["afconvert", "-f", "AIFF", "-d", "BEI16", "{input}", "{output}"]

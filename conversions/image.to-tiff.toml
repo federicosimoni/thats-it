@@ -1,0 +1,22 @@
+# Raster image → TIFF, with the pure-Rust image engine.
+schema     = 1
+id         = "image.to-tiff"
+category   = "images"
+icon       = "photo"
+accepts    = [
+  "public.png",
+  "public.jpeg",
+  "com.microsoft.bmp",
+  "com.compuserve.gif",
+  "org.webmproject.webp",
+]
+accepts_ext = ["png", "jpg", "jpeg", "bmp", "gif", "webp"]
+output_ext = "tiff"
+
+[label]
+en = "Convert to TIFF"
+it = "Converti in TIFF"
+
+[[steps]]
+engine = "builtin:image"
+args = { format = "tiff" }

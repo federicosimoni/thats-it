@@ -1,0 +1,22 @@
+# Raster image → WebP (lossless), with the pure-Rust image engine.
+schema     = 1
+id         = "image.to-webp"
+category   = "images"
+icon       = "photo"
+accepts    = [
+  "public.png",
+  "public.jpeg",
+  "public.tiff",
+  "com.microsoft.bmp",
+  "com.compuserve.gif",
+]
+accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif"]
+output_ext = "webp"
+
+[label]
+en = "Convert to WebP (lossless)"
+it = "Converti in WebP (senza perdita)"
+
+[[steps]]
+engine = "builtin:image"
+args = { format = "webp" }

@@ -1,0 +1,21 @@
+# Video → animated GIF (12 fps, max 640 px, optimised palette). Needs ffmpeg: `brew install ffmpeg`.
+schema     = 1
+id         = "video.to-gif"
+category   = "audio-video"
+icon       = "film"
+accepts    = ["public.movie"]
+accepts_ext = ["mov", "mp4", "m4v", "avi", "mkv", "webm"]
+output_ext = "gif"
+requires   = ["ffmpeg"]
+
+[label]
+en = "Convert to GIF"
+it = "Converti in GIF"
+
+[[steps]]
+cmd = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-i", "{input}", "-vf", "fps=12,scale='min(640,iw)':-1:flags=lanczos,palettegen", "{tmpdir}/palette.png"]
+timeout_secs = 1800
+
+[[steps]]
+cmd = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-i", "{input}", "-i", "{tmpdir}/palette.png", "-lavfi", "fps=12,scale='min(640,iw)':-1:flags=lanczos[x];[x][1:v]paletteuse", "{output}"]
+timeout_secs = 1800

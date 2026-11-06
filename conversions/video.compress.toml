@@ -1,0 +1,18 @@
+# Smaller video: H.264 CRF 28, at most 1920 px wide. Needs ffmpeg: `brew install ffmpeg`.
+schema     = 1
+id         = "video.compress"
+category   = "audio-video"
+icon       = "film"
+accepts    = ["public.movie"]
+accepts_ext = ["mov", "mp4", "m4v", "avi", "mkv", "webm"]
+output_ext = "mp4"
+output_suffix = " compressed"
+requires   = ["ffmpeg"]
+
+[label]
+en = "Compress video"
+it = "Comprimi video"
+
+[[steps]]
+cmd = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-i", "{input}", "-vf", "scale='min(1920,iw)':-2", "-c:v", "libx264", "-crf", "28", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "{output}"]
+timeout_secs = 7200

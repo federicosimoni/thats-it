@@ -1,0 +1,17 @@
+# PDF → one PNG per page (144 dpi) in a folder, rendered by PDFKit.
+schema     = 1
+id         = "document.pdf-to-png"
+category   = "documents"
+icon       = "doc.on.doc"
+accepts    = ["com.adobe.pdf"]
+accepts_ext = ["pdf"]
+output_kind = "directory"
+
+[label]
+en = "Pages to PNG"
+it = "Pagine in PNG"
+
+[[steps]]
+engine = "builtin:pdf-to-images"
+args = { dpi = 144 }
+timeout_secs = 1800

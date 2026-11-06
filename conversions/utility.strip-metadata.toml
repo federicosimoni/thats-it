@@ -1,0 +1,16 @@
+# Remove EXIF/GPS, XMP and IPTC metadata without re-encoding (colour profile kept).
+schema     = 1
+id         = "utility.strip-metadata"
+category   = "utilities"
+icon       = "location.slash"
+accepts    = ["public.jpeg", "public.png", "org.webmproject.webp"]
+accepts_ext = ["jpg", "jpeg", "png", "webp"]
+output_ext = "same"
+output_suffix = " clean"
+
+[label]
+en = "Remove metadata"
+it = "Togli metadati"
+
+[[steps]]
+engine = "builtin:strip-metadata"

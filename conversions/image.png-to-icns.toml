@@ -1,0 +1,50 @@
+# PNG → macOS app icon (.icns): builds an .iconset with `sips`, then runs `iconutil`.
+# Use a square PNG of at least 1024×1024 for the best result.
+schema     = 1
+id         = "image.png-to-icns"
+category   = "images"
+icon       = "app.dashed"
+accepts    = ["public.png"]
+accepts_ext = ["png"]
+output_ext = "icns"
+requires   = ["mkdir", "sips", "iconutil"]
+
+[label]
+en = "Make app icon (ICNS)"
+it = "Crea icona app (ICNS)"
+
+[[steps]]
+cmd = ["mkdir", "{tmpdir}/icon.iconset"]
+
+[[steps]]
+cmd = ["sips", "-z", "16", "16", "{input}", "--out", "{tmpdir}/icon.iconset/icon_16x16.png"]
+
+[[steps]]
+cmd = ["sips", "-z", "32", "32", "{input}", "--out", "{tmpdir}/icon.iconset/icon_16x16@2x.png"]
+
+[[steps]]
+cmd = ["sips", "-z", "32", "32", "{input}", "--out", "{tmpdir}/icon.iconset/icon_32x32.png"]
+
+[[steps]]
+cmd = ["sips", "-z", "64", "64", "{input}", "--out", "{tmpdir}/icon.iconset/icon_32x32@2x.png"]
+
+[[steps]]
+cmd = ["sips", "-z", "128", "128", "{input}", "--out", "{tmpdir}/icon.iconset/icon_128x128.png"]
+
+[[steps]]
+cmd = ["sips", "-z", "256", "256", "{input}", "--out", "{tmpdir}/icon.iconset/icon_128x128@2x.png"]
+
+[[steps]]
+cmd = ["sips", "-z", "256", "256", "{input}", "--out", "{tmpdir}/icon.iconset/icon_256x256.png"]
+
+[[steps]]
+cmd = ["sips", "-z", "512", "512", "{input}", "--out", "{tmpdir}/icon.iconset/icon_256x256@2x.png"]
+
+[[steps]]
+cmd = ["sips", "-z", "512", "512", "{input}", "--out", "{tmpdir}/icon.iconset/icon_512x512.png"]
+
+[[steps]]
+cmd = ["sips", "-z", "1024", "1024", "{input}", "--out", "{tmpdir}/icon.iconset/icon_512x512@2x.png"]
+
+[[steps]]
+cmd = ["iconutil", "-c", "icns", "{tmpdir}/icon.iconset", "-o", "{output}"]

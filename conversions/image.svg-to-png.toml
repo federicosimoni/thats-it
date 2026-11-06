@@ -1,0 +1,16 @@
+# SVG → PNG at 2× size, rendered with resvg.
+schema     = 1
+id         = "image.svg-to-png"
+category   = "images"
+icon       = "photo"
+accepts    = ["public.svg-image"]
+accepts_ext = ["svg"]
+output_ext = "png"
+
+[label]
+en = "Convert to PNG"
+it = "Converti in PNG"
+
+[[steps]]
+engine = "builtin:svg-to-png"
+args = { scale = 2 }

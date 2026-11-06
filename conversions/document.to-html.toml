@@ -1,0 +1,22 @@
+# Document → HTML, using the built-in `textutil` tool.
+schema     = 1
+id         = "document.to-html"
+category   = "documents"
+icon       = "doc.text"
+accepts    = [
+  "org.openxmlformats.wordprocessingml.document",
+  "com.microsoft.word.doc",
+  "public.rtf",
+  "org.oasis-open.opendocument.text",
+  "public.plain-text",
+]
+accepts_ext = ["docx", "doc", "rtf", "odt", "txt"]
+output_ext = "html"
+requires   = ["textutil"]
+
+[label]
+en = "Convert to HTML"
+it = "Converti in HTML"
+
+[[steps]]
+cmd = ["textutil", "-convert", "html", "-output", "{output}", "{input}"]

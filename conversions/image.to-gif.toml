@@ -1,0 +1,22 @@
+# Raster image → GIF, with the pure-Rust image engine.
+schema     = 1
+id         = "image.to-gif"
+category   = "images"
+icon       = "photo"
+accepts    = [
+  "public.png",
+  "public.jpeg",
+  "public.tiff",
+  "com.microsoft.bmp",
+  "org.webmproject.webp",
+]
+accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "bmp", "webp"]
+output_ext = "gif"
+
+[label]
+en = "Convert to GIF"
+it = "Converti in GIF"
+
+[[steps]]
+engine = "builtin:image"
+args = { format = "gif" }

@@ -1,0 +1,22 @@
+# Raster image → PNG, with the pure-Rust image engine.
+schema     = 1
+id         = "image.to-png"
+category   = "images"
+icon       = "photo"
+accepts    = [
+  "public.jpeg",
+  "public.tiff",
+  "com.microsoft.bmp",
+  "com.compuserve.gif",
+  "org.webmproject.webp",
+]
+accepts_ext = ["jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp"]
+output_ext = "png"
+
+[label]
+en = "Convert to PNG"
+it = "Converti in PNG"
+
+[[steps]]
+engine = "builtin:image"
+args = { format = "png" }

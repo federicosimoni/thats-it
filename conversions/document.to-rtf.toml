@@ -1,0 +1,22 @@
+# Document → RTF, using the built-in `textutil` tool.
+schema     = 1
+id         = "document.to-rtf"
+category   = "documents"
+icon       = "doc.text"
+accepts    = [
+  "org.openxmlformats.wordprocessingml.document",
+  "com.microsoft.word.doc",
+  "org.oasis-open.opendocument.text",
+  "public.html",
+  "public.plain-text",
+]
+accepts_ext = ["docx", "doc", "odt", "html", "htm", "txt"]
+output_ext = "rtf"
+requires   = ["textutil"]
+
+[label]
+en = "Convert to RTF"
+it = "Converti in RTF"
+
+[[steps]]
+cmd = ["textutil", "-convert", "rtf", "-output", "{output}", "{input}"]

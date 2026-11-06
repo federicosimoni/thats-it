@@ -1,0 +1,20 @@
+# Markdown → HTML → Word (DOCX), using `textutil` for the last step.
+schema     = 1
+id         = "document.markdown-to-docx"
+category   = "documents"
+icon       = "doc.text"
+accepts    = ["net.daringfireball.markdown"]
+accepts_ext = ["md", "markdown"]
+output_ext = "docx"
+requires   = ["textutil"]
+
+[label]
+en = "Convert to Word (DOCX)"
+it = "Converti in Word (DOCX)"
+
+[[steps]]
+engine = "builtin:markdown-to-html"
+args = { output = "{tmpdir}/{stem}.html" }
+
+[[steps]]
+cmd = ["textutil", "-convert", "docx", "-output", "{output}", "{tmpdir}/{stem}.html"]

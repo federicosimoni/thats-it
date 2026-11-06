@@ -1,0 +1,17 @@
+# Extract the audio track as M4A (AAC 192 kbps). Needs ffmpeg: `brew install ffmpeg`.
+schema     = 1
+id         = "video.extract-audio"
+category   = "audio-video"
+icon       = "waveform"
+accepts    = ["public.movie"]
+accepts_ext = ["mov", "mp4", "m4v", "avi", "mkv", "webm"]
+output_ext = "m4a"
+requires   = ["ffmpeg"]
+
+[label]
+en = "Extract audio"
+it = "Estrai audio"
+
+[[steps]]
+cmd = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-i", "{input}", "-vn", "-c:a", "aac", "-b:a", "192k", "{output}"]
+timeout_secs = 1800

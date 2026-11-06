@@ -1,0 +1,18 @@
+# Optimise a PNG losslessly with oxipng (same pixels, smaller file).
+schema     = 1
+id         = "utility.optimize-png"
+category   = "utilities"
+icon       = "wand.and.stars"
+accepts    = ["public.png"]
+accepts_ext = ["png"]
+output_ext = "png"
+output_suffix = " optimized"
+
+[label]
+en = "Optimize PNG"
+it = "Ottimizza PNG"
+
+[[steps]]
+engine = "builtin:optimize-png"
+args = { level = 2 }
+timeout_secs = 600

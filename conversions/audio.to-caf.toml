@@ -1,0 +1,23 @@
+# Audio → CAF, using the built-in `afconvert` tool.
+schema     = 1
+id         = "audio.to-caf"
+category   = "audio-video"
+icon       = "waveform"
+accepts    = [
+  "com.microsoft.waveform-audio",
+  "public.aiff-audio",
+  "public.aifc-audio",
+  "com.apple.m4a-audio",
+  "public.mp3",
+  "org.xiph.flac",
+]
+accepts_ext = ["wav", "aif", "aiff", "aifc", "m4a", "mp3", "flac"]
+output_ext = "caf"
+requires   = ["afconvert"]
+
+[label]
+en = "Convert to CAF"
+it = "Converti in CAF"
+
+[[steps]]
+cmd = ["afconvert", "-f", "caff", "-d", "LEI16", "{input}", "{output}"]

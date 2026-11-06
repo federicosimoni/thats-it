@@ -1,0 +1,22 @@
+# Document → Word 97 (DOC), using the built-in `textutil` tool.
+schema     = 1
+id         = "document.to-doc"
+category   = "documents"
+icon       = "doc.text"
+accepts    = [
+  "org.openxmlformats.wordprocessingml.document",
+  "public.rtf",
+  "org.oasis-open.opendocument.text",
+  "public.html",
+  "public.plain-text",
+]
+accepts_ext = ["docx", "rtf", "odt", "html", "htm", "txt"]
+output_ext = "doc"
+requires   = ["textutil"]
+
+[label]
+en = "Convert to Word 97 (DOC)"
+it = "Converti in Word 97 (DOC)"
+
+[[steps]]
+cmd = ["textutil", "-convert", "doc", "-output", "{output}", "{input}"]

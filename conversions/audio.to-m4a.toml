@@ -1,4 +1,4 @@
-# Uncompressed or other audio → M4A (AAC), using the built-in `afconvert` tool.
+# Audio → M4A (AAC), using the built-in `afconvert` tool.
 schema     = 1
 id         = "audio.to-m4a"
 category   = "audio-video"
@@ -9,8 +9,9 @@ accepts    = [
   "public.aifc-audio",
   "com.apple.coreaudio-format",
   "public.mp3",
+  "org.xiph.flac",
 ]
-accepts_ext = ["wav", "aif", "aiff", "caf", "mp3"]
+accepts_ext = ["wav", "aif", "aiff", "aifc", "caf", "mp3", "flac"]
 output_ext = "m4a"
 requires   = ["afconvert"]
 
