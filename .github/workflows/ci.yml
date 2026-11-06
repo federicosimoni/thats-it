@@ -26,6 +26,8 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test --workspace
+      - name: Locale consistency (warns on missing translations)
+        run: cargo test -p thatsit-core --test locales -- --nocapture
       - name: Run every bundled conversion with the real macOS tools
         if: runner.os == 'macOS'
         run: |
@@ -103,6 +105,18 @@ jobs:
             fi
           }
           capture light
+          # Preferences window (normal window layer 0), light mode.
+          THATSIT_DEMO_PREFS=1 ./target/aarch64-apple-darwin/debug/thatsit > demo-prefs.log 2>&1 &
+          PID=$!
+          sleep 4
+          RECT=$(swift scripts/ci-list-windows.swift thatsit 0 | sed -n 's/^RECT //p' | head -1)
+          screencapture -x -R"$RECT" prefs.png || true
+          kill "$PID" || true
+          cat demo-prefs.log
+          if [ -f prefs.png ]; then
+            sips -s format jpeg -s formatOptions 60 prefs.png --out prefs.jpg > /dev/null
+            echo "BEGIN-PREFS"; base64 -i prefs.jpg | fold -w 2000; echo "END-PREFS"
+          fi
           osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to true' || true
           sleep 2
           capture dark
@@ -115,4 +129,5 @@ jobs:
             screenshot.png
             demo-*.log
             ring-*.png
+            prefs.png
           if-no-files-found: ignore

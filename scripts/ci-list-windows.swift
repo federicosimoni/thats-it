@@ -1,12 +1,14 @@
 // Lists the on-screen windows owned by a process (used by CI to smoke-test the widget).
-// Usage: swift scripts/ci-list-windows.swift <process-name>
+// Usage: swift scripts/ci-list-windows.swift <process-name> [layer]
 // Prints one line per window: layer, bounds; exits 1 if none is found.
 import CoreGraphics
 import Foundation
 
 let owner = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "thatsit"
 let desktopIconLevel = Int(CGWindowLevelForKey(.desktopIconWindow))
-print("desktop icon level = \(desktopIconLevel), expected widget level = \(desktopIconLevel + 1)")
+// Optional second argument: the window layer to look for (default: desktop icons + 1).
+let wanted = CommandLine.arguments.count > 2 ? Int(CommandLine.arguments[2]) ?? 0 : desktopIconLevel + 1
+print("desktop icon level = \(desktopIconLevel), looking for layer \(wanted)")
 
 let info = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? []
 var found = false
@@ -15,7 +17,7 @@ for w in info where (w[kCGWindowOwnerName as String] as? String) == owner {
     let bounds = w[kCGWindowBounds as String] as? [String: Any] ?? [:]
     let onScreen = w[kCGWindowIsOnscreen as String] as? Bool ?? false
     print("window: layer=\(layer) onscreen=\(onScreen) bounds=\(bounds)")
-    if layer == desktopIconLevel + 1 && onScreen {
+    if layer == wanted && onScreen {
         found = true
         // Capture rectangle for `screencapture -R`, with a small margin.
         let x = (bounds["X"] as? Double ?? 0) - 16, y = (bounds["Y"] as? Double ?? 0) - 16
@@ -24,7 +26,7 @@ for w in info where (w[kCGWindowOwnerName as String] as? String) == owner {
     }
 }
 if !found {
-    print("no on-screen window at desktop icon level + 1 found for \(owner)")
+    print("no on-screen window at layer \(wanted) found for \(owner)")
     exit(1)
 }
 print("OK")
