@@ -5,6 +5,7 @@
 
 pub mod conversion;
 pub mod geometry;
+pub mod menu;
 pub mod output;
 pub mod pipeline;
 pub mod placeholder;

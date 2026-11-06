@@ -105,6 +105,31 @@ pub fn to_math_deg(clock_deg: f64) -> f64 {
     normalize_deg(90.0 - clock_deg)
 }
 
+/// An axis-aligned rectangle (origin at the bottom-left, like AppKit screen coordinates).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Rect {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+}
+
+/// Moves `center` so that a circle of `radius` around it fits inside `bounds`.
+/// If the circle is larger than `bounds`, it is centred on `bounds` along that axis.
+pub fn clamp_center(center: (f64, f64), radius: f64, bounds: Rect) -> (f64, f64) {
+    let axis = |c: f64, lo: f64, len: f64| {
+        if 2.0 * radius >= len {
+            lo + len / 2.0
+        } else {
+            c.clamp(lo + radius, lo + len - radius)
+        }
+    };
+    (
+        axis(center.0, bounds.x, bounds.w),
+        axis(center.1, bounds.y, bounds.h),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -207,5 +232,36 @@ mod tests {
         assert!((to_math_deg(0.0) - 90.0).abs() < EPS); // top
         assert!((to_math_deg(90.0) - 0.0).abs() < EPS); // right
         assert!((to_math_deg(180.0) - 270.0).abs() < EPS); // bottom
+    }
+    #[test]
+    fn clamps_ring_inside_bounds() {
+        let screen = Rect {
+            x: 0.0,
+            y: 25.0,
+            w: 1440.0,
+            h: 850.0,
+        };
+        assert_eq!(clamp_center((700.0, 400.0), 160.0, screen), (700.0, 400.0));
+        assert_eq!(clamp_center((10.0, 10.0), 160.0, screen), (160.0, 185.0));
+        assert_eq!(
+            clamp_center((1439.0, 874.0), 160.0, screen),
+            (1280.0, 715.0)
+        );
+        // Secondary screen to the left (negative coordinates).
+        let left = Rect {
+            x: -1920.0,
+            y: 0.0,
+            w: 1920.0,
+            h: 1080.0,
+        };
+        assert_eq!(clamp_center((-5.0, 500.0), 160.0, left), (-160.0, 500.0));
+        // Ring bigger than the screen: centred.
+        let tiny = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 200.0,
+            h: 1000.0,
+        };
+        assert_eq!(clamp_center((0.0, 0.0), 160.0, tiny), (100.0, 160.0));
     }
 }
