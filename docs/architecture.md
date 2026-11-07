@@ -19,6 +19,7 @@ The rule: anything that can be tested without AppKit lives in `thatsit-core`.
 |---|---|
 | `conversion` | TOML schema, validation, loading (bundled, then user, later wins by `id`), the registry and matching dragged files (UTType + extension) to conversions, intersected for several files |
 | `geometry` | Radial layout, point → sector hit-testing, clamping the ring into the screen, the five snap anchors |
+| `summon` | Summon mode logic: drag detection from pasteboard/mouse samples, placement next to the pointer |
 | `menu` | The ring's state machine: hover delay, categories and second ring, dwell, drop outcome |
 | `placeholder` | `{input}`, `{output}`, `{stem}`, `{dir}`, `{tmpdir}` substitution inside single arguments |
 | `pipeline` | Runs the steps of a conversion: argv commands (never a shell) with timeouts and cancellation of the whole process group, or builtin engines |
@@ -35,6 +36,7 @@ The rule: anything that can be tested without AppKit lives in `thatsit-core`.
 | `window` | The borderless, transparent window at desktop-icon level + 1, on every Space |
 | `ring_view` | The `NSView` subclass: glass disc, sector layers, drag destination, Option-drag snapping, progress ring |
 | `files` | Reading file URLs and UTTypes from the dragging pasteboard |
+| `summon` | Summon mode: watches file drags and shows a widget next to the pointer when the desktop widget is covered |
 | `service` | The Finder service "Convert with That's it…": a menu of compatible conversions at the pointer |
 | `cli` | `--convert`, `--list`, `--help` (Shortcuts, scripts, CI) |
 | `catalog` | Loads the registry, checks tools, holds the UI language |

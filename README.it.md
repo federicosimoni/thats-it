@@ -144,7 +144,10 @@ basso a sinistra), sempre abbastanza lontano dai bordi perché l'anello aperto c
 widget, apertura al login, colore di accento, conversioni visibili, strumenti trovati),
 nasconde il widget, annulla una conversione in corso e apre la cartella delle tue conversioni.
 
-Il widget sta sulla scrivania, sotto le finestre, quindi è nascosto dalle app a tutto schermo.
+Il widget sta sulla scrivania, sotto le finestre. Quando è coperto (da finestre o da un'app
+a tutto schermo), inizia a trascinare dei file e tieni premuto per mezzo secondo: compare un
+secondo widget **vicino al puntatore**, sopra tutto, che funziona allo stesso modo. Si può
+disattivare nelle Preferenze.
 
 ## Menu del Finder e Comandi Rapidi
 

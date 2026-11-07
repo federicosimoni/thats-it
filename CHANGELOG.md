@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Summon mode: when the desktop widget is covered by windows or a full-screen app, a file
+  drag held for half a second shows a widget next to the pointer, above every window.
+  Preference: "Show the widget near the pointer when the desktop is covered" (on).
+
 ## [0.2.0] — 2026-11-07
 
 ### Added

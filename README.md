@@ -139,8 +139,10 @@ edges for the open ring to fit. **Option-click** jumps to the next place.
 at login, accent color, which conversions appear, detected tools), hides the widget,
 cancels a running conversion and opens the folder for your own conversions.
 
-The widget sits on the desktop, under your windows, so it is hidden behind full-screen
-apps.
+The widget sits on the desktop, under your windows. When it is covered (by windows or a
+full-screen app), start dragging files and keep the button pressed for half a second: a
+second widget appears **next to the pointer**, above everything, and works the same way.
+This can be turned off in Preferences.
 
 ## Finder menu and Shortcuts
 

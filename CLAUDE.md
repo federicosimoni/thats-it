@@ -331,8 +331,8 @@ README with GIF, all community files, issue templates/labels, Weblate setup, fir
 
 ## 10. Known constraints & open questions
 
-- The widget is on the desktop layer: it is hidden behind full-screen apps by design (v2 summon mode
-  addresses this).
+- The widget is on the desktop layer, hidden behind windows and full-screen apps; summon mode
+  (v2, `summon.rs`) shows a second widget next to the pointer during file drags in that case.
 - Pure-Rust WebP encoding is lossless only.
 - `afconvert` does not encode MP3 → ffmpeg needed for MP3.
 - Notifications need a bundled, signed app.
