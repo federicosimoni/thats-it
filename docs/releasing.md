@@ -14,13 +14,47 @@ The bundle contains the universal binary, `Info.plist` (from `resources/Info.pli
 icon rendered from `resources/AppIcon.svg`, the bundled conversions, the locales and the
 `*.lproj` folders. It is signed **ad hoc** (`codesign -s -`).
 
-## Signing status
+## Signing and notarization
 
-There is no Developer ID signature or notarization yet, so Gatekeeper blocks the first
-launch of a downloaded copy: **System Settings → Privacy & Security → Open Anyway**, or
-`xattr -dr com.apple.quarantine "/Applications/That's it.app"`. Adding Developer ID signing
-and `notarytool` later only changes the `codesign` step in `xtask` and needs the
-certificate and an app-specific password as GitHub Actions secrets.
+Without an Apple Developer account the app is signed **ad hoc**, so Gatekeeper blocks the
+first launch of a downloaded copy: **System Settings → Privacy & Security → Open Anyway**,
+or `xattr -dr com.apple.quarantine "/Applications/That's it.app"`.
+
+Developer ID signing (hardened runtime) and notarization are already wired into
+`cargo xtask dmg` and the Release workflow; they switch on when the secrets exist.
+
+### One-time setup (needs the paid Apple Developer Program)
+
+1. In Xcode → Settings → Accounts → Manage Certificates, create a
+   **Developer ID Application** certificate. In Keychain Access, export it with its private
+   key as `certificate.p12` with a password.
+2. In [App Store Connect → Users and Access → Integrations → App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api),
+   create a key with the *Developer* role. Download the `.p8` (only possible once) and note
+   the **Key ID** and the **Issuer ID**.
+3. Add these secrets to `federicosimoni/thats-it` (Settings → Secrets and variables →
+   Actions):
+
+   | Secret | Value |
+   |---|---|
+   | `MACOS_CERTIFICATE` | `base64 -i certificate.p12 \| pbcopy` |
+   | `MACOS_CERTIFICATE_PASSWORD` | the export password |
+   | `MACOS_SIGN_IDENTITY` | e.g. `Developer ID Application: Federico Simoni (TEAMID)` (`security find-identity -v -p codesigning`) |
+   | `APPLE_API_KEY` | `base64 -i AuthKey_XXXX.p8 \| pbcopy` |
+   | `APPLE_API_KEY_ID` | the Key ID |
+   | `APPLE_API_ISSUER` | the Issuer ID |
+
+The next release is then signed, notarized and stapled; the release notes and the
+Homebrew cask drop the "Open Anyway" instructions automatically. Afterwards, remove the
+Gatekeeper notes from the READMEs.
+
+### Locally
+
+```sh
+export THATSIT_SIGN_IDENTITY="Developer ID Application: Federico Simoni (TEAMID)"
+xcrun notarytool store-credentials thatsit   # once: stores the credentials in the keychain
+export THATSIT_NOTARY_PROFILE=thatsit
+cargo xtask dmg
+```
 
 ## Cutting a release
 

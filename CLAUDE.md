@@ -267,7 +267,7 @@ relevant phase** and adjust.
 - `cargo xtask bundle` → builds both architectures, `lipo` into a universal binary, assembles
   `That's it.app` (Info.plist, icons, resources, conversions, locales, lproj).
 - Signing & notarization: Developer ID Application cert, hardened runtime, `notarytool`, `stapler`.
-  Requires a paid Apple Developer account (owner to confirm — see §10). Secrets only in GitHub
+  Requires a paid Apple Developer account (owner gets it last — see §10); already wired in xtask and the Release workflow, switched on by secrets (docs/releasing.md). Secrets only in GitHub
   Actions secrets, never in the repo.
 - Release artifact: `.dmg` attached to GitHub Releases, built by a GitHub Actions workflow on a
   macOS runner when a `v*` tag is pushed.

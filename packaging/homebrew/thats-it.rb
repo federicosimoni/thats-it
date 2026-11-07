@@ -21,9 +21,11 @@ cask "thats-it" do
   ]
 
   caveats <<~EOS
+    # NOT-NOTARIZED-BEGIN
     That's it is not notarized by Apple yet. On first launch macOS will block it:
     open System Settings → Privacy & Security and click "Open Anyway", or run
       xattr -dr com.apple.quarantine "#{appdir}/That's it.app"
+    # NOT-NOTARIZED-END
     Video and MP3 conversions need ffmpeg:  brew install ffmpeg
   EOS
 end

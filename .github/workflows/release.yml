@@ -42,6 +42,43 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
       - run: cargo test --workspace
+      - name: Import the Developer ID certificate and notary key (if configured)
+        env:
+          CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          NOTARY_KEY: ${{ secrets.APPLE_API_KEY }}
+          NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          if [ -z "$CERTIFICATE" ] || [ -z "$SIGN_IDENTITY" ]; then
+            echo "::notice::No Developer ID secrets: the app is signed ad hoc (not notarized)"
+            echo "NOTARIZED=0" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+          echo "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$KEYCHAIN" \
+            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/certificate.p12"
+          echo "THATSIT_SIGN_IDENTITY=$SIGN_IDENTITY" >> "$GITHUB_ENV"
+          if [ -n "$NOTARY_KEY" ]; then
+            echo "$NOTARY_KEY" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+            {
+              echo "THATSIT_NOTARY_KEY=$RUNNER_TEMP/notary.p8"
+              echo "THATSIT_NOTARY_KEY_ID=$NOTARY_KEY_ID"
+              echo "THATSIT_NOTARY_ISSUER=$NOTARY_ISSUER"
+              echo "NOTARIZED=1"
+            } >> "$GITHUB_ENV"
+          else
+            echo "NOTARIZED=0" >> "$GITHUB_ENV"
+          fi
       - name: Build the universal app and dmg
         run: cargo xtask dmg
       - name: Checksum
@@ -53,15 +90,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [ "$NOTARIZED" = 1 ]; then
+            GATEKEEPER="Signed with a Developer ID and notarized by Apple."
+          else
+            GATEKEEPER="That's it is not notarized by Apple yet, so macOS blocks the first launch: open
+          **System Settings → Privacy & Security** and click **Open Anyway** (or run
+          \`xattr -dr com.apple.quarantine \"/Applications/That's it.app\"\`)."
+          fi
           cat > notes.md <<NOTES
           ## Install
 
           - **Homebrew:** \`brew install --cask federicosimoni/tap/thats-it\`
           - **Manually:** open the .dmg and drag *That's it* to Applications.
 
-          That's it is not notarized by Apple yet, so macOS blocks the first launch: open
-          **System Settings → Privacy & Security** and click **Open Anyway** (or run
-          \`xattr -dr com.apple.quarantine "/Applications/That's it.app"\`).
+          $GATEKEEPER
 
           Universal binary (Apple silicon + Intel), macOS 13 Ventura or later.
           Video and MP3 conversions need \`brew install ffmpeg\`.
@@ -82,7 +124,14 @@ jobs:
           fi
           git clone "https://x-access-token:${TAP_TOKEN}@github.com/federicosimoni/homebrew-tap.git" tap
           mkdir -p tap/Casks
-          sed -e "s/@VERSION@/$VERSION/" -e "s/@SHA256@/$SHA256/" packaging/homebrew/thats-it.rb \
+          CASK=packaging/homebrew/thats-it.rb
+          if [ "$NOTARIZED" = 1 ]; then
+            # Drop the Gatekeeper caveat (between the NOT-NOTARIZED markers).
+            sed '/# NOT-NOTARIZED-BEGIN/,/# NOT-NOTARIZED-END/d' "$CASK" > cask.rb
+          else
+            grep -v 'NOT-NOTARIZED-' "$CASK" > cask.rb
+          fi
+          sed -e "s/@VERSION@/$VERSION/" -e "s/@SHA256@/$SHA256/" cask.rb \
             | grep -v '^# ' > tap/Casks/thats-it.rb
           cd tap
           git config user.name "github-actions[bot]"
