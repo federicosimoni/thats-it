@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-11-07
+
 ### Added
 
 - Summon mode: when the desktop widget is covered by windows or a full-screen app, a file
@@ -71,7 +73,8 @@ First public release.
 - English and Italian localization (Project Fluent).
 - Universal (Apple silicon + Intel) app bundle and `.dmg`, Homebrew cask.
 
-[Unreleased]: https://github.com/federicosimoni/thats-it/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/federicosimoni/thats-it/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/federicosimoni/thats-it/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/federicosimoni/thats-it/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/federicosimoni/thats-it/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/federicosimoni/thats-it/compare/v0.1.0...v0.1.1
