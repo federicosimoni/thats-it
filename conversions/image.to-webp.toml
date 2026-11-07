@@ -14,8 +14,8 @@ accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif"]
 output_ext = "webp"
 
 [label]
-en = "Convert to WebP (lossless)"
-it = "Converti in WebP (senza perdita)"
+en = "Convert to WebP lossless"
+it = "Converti in WebP lossless"
 
 [[steps]]
 engine = "builtin:image"
