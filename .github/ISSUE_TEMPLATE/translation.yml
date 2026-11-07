@@ -1,0 +1,33 @@
+name: Translation
+description: Report a translation mistake or offer a new language.
+labels: ["translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Translations are easiest on Weblate; see
+        [docs/translating.md](https://github.com/federicosimoni/thats-it/blob/main/docs/translating.md).
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      placeholder: e.g. French (fr), Brazilian Portuguese (pt-BR)
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is it about?
+      options:
+        - A wrong or unclear translation
+        - A new language I would like to translate
+        - A text that cannot be translated yet
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Where the text appears, the current text and what it should say.
+    validations:
+      required: true

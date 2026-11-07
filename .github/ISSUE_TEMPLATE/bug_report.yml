@@ -1,0 +1,49 @@
+name: Bug report
+description: Something does not work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Security problems go through
+        [private reporting](https://github.com/federicosimoni/thats-it/security/advisories/new) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Drag a HEIC photo onto the widget
+        2. Choose "Convert to JPG"
+        3. …
+  - type: input
+    id: conversion
+    attributes:
+      label: Conversion and file type
+      description: Which conversion, and what kind of file (e.g. "Convert to PDF", a .docx).
+  - type: input
+    id: version
+    attributes:
+      label: That's it version
+      description: Menu bar → About That's it.
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac
+      placeholder: macOS 15.1, Apple silicon
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Menu bar → Open Log Folder. Paste the relevant lines (check them for private file names first).
+      render: text

@@ -1,0 +1,38 @@
+name: Conversion request
+description: Ask for a new conversion in the ring.
+labels: ["conversion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Conversions are small TOML files, so this is often a good first contribution:
+        see [CONTRIBUTING.md](https://github.com/federicosimoni/thats-it/blob/main/CONTRIBUTING.md#add-a-conversion).
+  - type: input
+    id: from
+    attributes:
+      label: From
+      placeholder: e.g. .png, .jpg (or a UTType such as public.image)
+    validations:
+      required: true
+  - type: input
+    id: to
+    attributes:
+      label: To
+      placeholder: e.g. .avif
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What would you use it for?
+  - type: textarea
+    id: how
+    attributes:
+      label: How could it be done?
+      description: A built-in macOS tool, a Homebrew tool or a Rust crate, if you know one. Built-in tools are preferred.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I would like to write the conversion file myself.

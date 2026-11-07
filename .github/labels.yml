@@ -1,0 +1,32 @@
+# Repository labels, applied by .github/workflows/labels.yml. Edit here, not in the UI:
+# labels missing from this file are left alone, so nothing is deleted.
+- name: bug
+  color: d73a4a
+  description: Something does not work
+- name: enhancement
+  color: a2eeef
+  description: New feature or improvement
+- name: conversion
+  color: 5319e7
+  description: A new or changed conversion file
+- name: translation
+  color: 0e8a16
+  description: Translations and localization
+- name: good first issue
+  color: 7057ff
+  description: Good for newcomers
+- name: help wanted
+  color: "008672"
+  description: Extra attention is welcome
+- name: documentation
+  color: 0075ca
+  description: Docs and README
+- name: question
+  color: d876e3
+  description: Further information is requested
+- name: duplicate
+  color: cfd3d7
+  description: This issue or pull request already exists
+- name: wontfix
+  color: ffffff
+  description: This will not be worked on
