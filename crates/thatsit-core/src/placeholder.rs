@@ -151,6 +151,45 @@ pub fn substitute(
     Ok(out)
 }
 
+/// Replaces `{name}` with `lookup(name)` for the names it knows (conversion variables),
+/// leaving every other placeholder and the `{{` / `}}` escapes untouched. Inserted values
+/// have their braces escaped, so a value can never introduce a placeholder.
+pub fn expand_vars(
+    template: &str,
+    lookup: impl Fn(&str) -> Option<String>,
+) -> Result<String, TemplateError> {
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(pos) = rest.find(['{', '}']) {
+        out.push_str(&rest[..pos]);
+        let after = &rest[pos + 1..];
+        if rest.as_bytes()[pos] == b'}' {
+            let stripped = after.strip_prefix('}').ok_or(TemplateError::StrayClose)?;
+            out.push_str("}}");
+            rest = stripped;
+            continue;
+        }
+        if let Some(stripped) = after.strip_prefix('{') {
+            out.push_str("{{");
+            rest = stripped;
+            continue;
+        }
+        let end = after.find('}').ok_or(TemplateError::Unclosed)?;
+        let name = &after[..end];
+        match lookup(name) {
+            Some(value) => out.push_str(&value.replace('{', "{{").replace('}', "}}")),
+            None => {
+                out.push('{');
+                out.push_str(name);
+                out.push('}');
+            }
+        }
+        rest = &after[end + 1..];
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -214,6 +253,22 @@ mod tests {
                 .to_string()
                 .contains("{input}")
         );
+    }
+
+    #[test]
+    fn expands_variables_only() {
+        let vars = |n: &str| (n == "q").then(|| "95".to_string());
+        assert_eq!(
+            expand_vars("-q {q} {input} {{q}}", vars).unwrap(),
+            "-q 95 {input} {{q}}"
+        );
+        assert_eq!(expand_vars("x={q}%", vars).unwrap(), "x=95%");
+        // A value with braces cannot become a placeholder.
+        let evil = |_: &str| Some("{output}".to_string());
+        let expanded = expand_vars("{v}", evil).unwrap();
+        assert_eq!(substitute(&expanded, values).unwrap(), "{output}");
+        assert_eq!(expand_vars("{q", vars), Err(TemplateError::Unclosed));
+        assert_eq!(expand_vars("q}", vars), Err(TemplateError::StrayClose));
     }
 
     #[test]

@@ -123,10 +123,122 @@ pub struct Conversion {
     pub requires: Vec<String>,
     /// Localized labels keyed by language tag; always contains `"en"`.
     pub label: BTreeMap<String, String>,
+    /// Steps as written: `{name}` variables are still unexpanded when there are variants
+    /// (see [`Conversion::resolve`]).
     pub steps: Vec<Step>,
+    /// Alternatives offered in a second ring (e.g. JPG quality); empty for most
+    /// conversions. Exactly one is the default.
+    pub variants: Vec<Variant>,
     pub origin: Origin,
     /// The file this conversion was loaded from, if any.
     pub path: Option<PathBuf>,
+}
+
+/// Maximum number of variants of one conversion (one ring).
+pub const MAX_VARIANTS: usize = crate::geometry::MAX_SECTORS;
+
+/// One alternative of a conversion: values for the conversion's `{name}` variables.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Variant {
+    pub id: String,
+    /// Localized labels keyed by language tag; always contains `"en"`.
+    pub label: BTreeMap<String, String>,
+    pub default: bool,
+    /// Variable values (integers, floats, booleans or plain strings).
+    pub vars: toml::Table,
+}
+
+impl Variant {
+    pub fn label_for<S: AsRef<str>>(&self, languages: &[S]) -> &str {
+        pick_label(&self.label, languages)
+    }
+}
+
+/// The label for the first matching language (exact tag, then base language), else English.
+fn pick_label<'a, S: AsRef<str>>(labels: &'a BTreeMap<String, String>, languages: &[S]) -> &'a str {
+    let find = |lang: &str| {
+        let lang = lang.replace('_', "-");
+        labels
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(&lang))
+            .map(|(_, v)| v.as_str())
+    };
+    for lang in languages {
+        let lang = lang.as_ref();
+        if let Some(l) = find(lang) {
+            return l;
+        }
+        if let Some(base) = lang.split(['-', '_']).next()
+            && let Some(l) = find(base)
+        {
+            return l;
+        }
+    }
+    &labels[FALLBACK_LANGUAGE]
+}
+
+/// A variable value as text, for command arguments and the output suffix.
+fn var_text(value: &toml::Value) -> String {
+    match value {
+        toml::Value::String(s) => s.clone(),
+        other => other.to_string(),
+    }
+}
+
+/// Expands `{name}` variables in one engine argument value. A string that is exactly
+/// `{name}` takes the variable's value with its type (so `quality = "{quality}"` stays a
+/// number).
+fn expand_value(value: &toml::Value, vars: &toml::Table) -> toml::Value {
+    match value {
+        toml::Value::String(s) => {
+            if let Some(name) = s.strip_prefix('{').and_then(|r| r.strip_suffix('}'))
+                && let Some(v) = vars.get(name)
+            {
+                return v.clone();
+            }
+            toml::Value::String(expand_text(s, vars))
+        }
+        toml::Value::Array(items) => {
+            toml::Value::Array(items.iter().map(|v| expand_value(v, vars)).collect())
+        }
+        toml::Value::Table(t) => toml::Value::Table(
+            t.iter()
+                .map(|(k, v)| (k.clone(), expand_value(v, vars)))
+                .collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
+/// Expands `{name}` variables in a template string; other placeholders are kept.
+/// Templates were validated on load, so a syntax error cannot happen here.
+fn expand_text(template: &str, vars: &toml::Table) -> String {
+    placeholder::expand_vars(template, |n| vars.get(n).map(var_text))
+        .unwrap_or_else(|_| template.to_owned())
+}
+
+fn expand_steps(steps: &[Step], vars: &toml::Table) -> Vec<Step> {
+    steps
+        .iter()
+        .map(|step| match step {
+            Step::Command { argv, timeout } => Step::Command {
+                argv: argv.iter().map(|a| expand_text(a, vars)).collect(),
+                timeout: *timeout,
+            },
+            Step::Engine {
+                name,
+                args,
+                timeout,
+            } => Step::Engine {
+                name: name.clone(),
+                args: args
+                    .iter()
+                    .map(|(k, v)| (k.clone(), expand_value(v, vars)))
+                    .collect(),
+                timeout: *timeout,
+            },
+        })
+        .collect()
 }
 
 impl Conversion {
@@ -166,26 +278,31 @@ impl Conversion {
     /// The label for the first matching language in `languages` (most preferred first),
     /// trying each tag exactly and then its base language (`it-CH` → `it`), finally `en`.
     pub fn label_for<S: AsRef<str>>(&self, languages: &[S]) -> &str {
-        for lang in languages {
-            let lang = lang.as_ref();
-            if let Some(l) = self.find_label(lang) {
-                return l;
-            }
-            if let Some(base) = lang.split(['-', '_']).next()
-                && let Some(l) = self.find_label(base)
-            {
-                return l;
-            }
-        }
-        &self.label[FALLBACK_LANGUAGE]
+        pick_label(&self.label, languages)
     }
 
-    fn find_label(&self, lang: &str) -> Option<&str> {
-        let lang = lang.replace('_', "-");
-        self.label
-            .iter()
-            .find(|(k, _)| k.eq_ignore_ascii_case(&lang))
-            .map(|(_, v)| v.as_str())
+    /// Index of the default variant, if the conversion has variants.
+    pub fn default_variant(&self) -> Option<usize> {
+        self.variants.iter().position(|v| v.default)
+    }
+
+    /// The conversion ready to run with variant `id` (the default variant when `None`):
+    /// `{name}` variables expanded in the steps and the output suffix, variants removed.
+    /// Without variants, `None` returns the conversion itself. Returns `None` for an
+    /// unknown variant id.
+    pub fn resolve(&self, variant: Option<&str>) -> Option<Conversion> {
+        if self.variants.is_empty() {
+            return variant.is_none().then(|| self.clone());
+        }
+        let chosen = match variant {
+            Some(id) => self.variants.iter().find(|v| v.id == id)?,
+            None => &self.variants[self.default_variant()?],
+        };
+        let mut resolved = self.clone();
+        resolved.steps = expand_steps(&self.steps, &chosen.vars);
+        resolved.output_suffix = expand_text(&self.output_suffix, &chosen.vars);
+        resolved.variants.clear();
+        Some(resolved)
     }
 
     /// The output for a given input: resolves `output_ext = "same"` to the input's
@@ -257,15 +374,110 @@ struct RawConversion {
     label: BTreeMap<String, String>,
     #[serde(default)]
     steps: Vec<RawStep>,
+    #[serde(default)]
+    variants: Vec<RawVariant>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawVariant {
+    id: String,
+    #[serde(default)]
+    default: bool,
+    #[serde(default)]
+    label: BTreeMap<String, String>,
+    #[serde(default)]
+    vars: toml::Table,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawStep {
     cmd: Option<Vec<String>>,
     engine: Option<String>,
     args: Option<toml::Table>,
     timeout_secs: Option<u64>,
+}
+
+fn is_valid_var_name(name: &str) -> bool {
+    name.starts_with(|c: char| c.is_ascii_lowercase())
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+        && !Placeholder::ALL.iter().any(|p| p.name() == name)
+}
+
+fn validate_variants(raw: &[RawVariant], p: &mut Vec<String>) -> Vec<Variant> {
+    if raw.is_empty() {
+        return Vec::new();
+    }
+    if raw.len() > MAX_VARIANTS {
+        p.push(format!("at most {MAX_VARIANTS} [[variants]] (one ring)"));
+    }
+    let defaults = raw.iter().filter(|v| v.default).count();
+    if defaults != 1 {
+        p.push(format!(
+            "exactly one variant must have `default = true` (found {defaults})"
+        ));
+    }
+    let keys = |v: &RawVariant| v.vars.keys().cloned().collect::<Vec<_>>();
+    let first_keys = keys(&raw[0]);
+    for (i, v) in raw.iter().enumerate() {
+        let at = format!("variants[{i}]");
+        if !is_valid_id(&v.id) {
+            p.push(format!("{at}: invalid id {:?}", v.id));
+        }
+        if raw[..i].iter().any(|o| o.id == v.id) {
+            p.push(format!("{at}: duplicate variant id {:?}", v.id));
+        }
+        if !v.label.contains_key(FALLBACK_LANGUAGE) {
+            p.push(format!("{at}: missing label.{FALLBACK_LANGUAGE}"));
+        }
+        for (lang, text) in &v.label {
+            if !is_valid_lang_tag(lang) || text.trim().is_empty() {
+                p.push(format!("{at}: invalid label {lang:?} = {text:?}"));
+            }
+        }
+        if v.vars.is_empty() {
+            p.push(format!("{at}: `vars` must set at least one variable"));
+        }
+        if keys(v) != first_keys {
+            p.push(format!(
+                "{at}: every variant must set the same variables ({})",
+                first_keys.join(", ")
+            ));
+        }
+        for (name, value) in &v.vars {
+            if !is_valid_var_name(name) {
+                p.push(format!(
+                    "{at}: invalid variable name {name:?} (lowercase letters, digits and '_', \
+                     not a placeholder name)"
+                ));
+            }
+            let ok = match value {
+                toml::Value::Integer(_) | toml::Value::Float(_) | toml::Value::Boolean(_) => true,
+                toml::Value::String(s) => {
+                    s.chars().count() <= 64
+                        && !s.chars().any(|c| matches!(c, '{' | '}') || c.is_control())
+                }
+                _ => false,
+            };
+            if !ok {
+                p.push(format!(
+                    "{at}: variable {name:?} must be a number, a boolean or a short string \
+                     without braces"
+                ));
+            }
+        }
+    }
+    raw.iter()
+        .map(|v| Variant {
+            id: v.id.clone(),
+            label: v.label.clone(),
+            default: v.default,
+            vars: v.vars.clone(),
+        })
+        .collect()
 }
 
 fn is_valid_id(id: &str) -> bool {
@@ -333,7 +545,11 @@ fn check_value_templates(value: &toml::Value, at: &str, problems: &mut Vec<Strin
 }
 
 impl RawConversion {
-    fn validate(self, origin: Origin, path: Option<&Path>) -> Result<Conversion, ValidationError> {
+    fn validate(
+        mut self,
+        origin: Origin,
+        path: Option<&Path>,
+    ) -> Result<Conversion, ValidationError> {
         let mut p = Vec::new();
 
         match self.schema {
@@ -420,7 +636,37 @@ impl RawConversion {
             }
         };
 
-        let suffix = &self.output_suffix;
+        // Variants: the templates are validated as expanded with the default variant's
+        // values; the conversion keeps them unexpanded (see `Conversion::resolve`).
+        let variants = validate_variants(&self.variants, &mut p);
+        let default_vars = variants.iter().find(|v| v.default).map(|v| v.vars.clone());
+        let original_steps = default_vars.as_ref().map(|_| self.steps.clone());
+        if let Some(vars) = &default_vars {
+            for step in &mut self.steps {
+                if let Some(argv) = &mut step.cmd {
+                    for arg in argv.iter_mut() {
+                        *arg = expand_text(arg, vars);
+                    }
+                }
+                if let Some(args) = &mut step.args {
+                    *args = args
+                        .iter()
+                        .map(|(k, v)| (k.clone(), expand_value(v, vars)))
+                        .collect();
+                }
+            }
+        }
+
+        let suffix = &match &default_vars {
+            Some(vars) => expand_text(&self.output_suffix, vars),
+            None => self.output_suffix.clone(),
+        };
+        if suffix.contains(['{', '}']) {
+            p.push(format!(
+                "output_suffix {:?} uses an unknown variable",
+                self.output_suffix
+            ));
+        }
         if suffix.chars().count() > 40
             || suffix.starts_with('.')
             || suffix
@@ -541,6 +787,26 @@ impl RawConversion {
         if !steps.is_empty() && !writes_output {
             p.push("no step writes the result: use {output} in a cmd argument".to_owned());
         }
+        if let Some(originals) = original_steps
+            && p.is_empty()
+        {
+            // Keep the `{name}` variables for `resolve`; everything else was validated.
+            steps = originals
+                .into_iter()
+                .zip(steps)
+                .map(|(raw, done)| match done {
+                    Step::Command { timeout, .. } => Step::Command {
+                        argv: raw.cmd.unwrap_or_default(),
+                        timeout,
+                    },
+                    Step::Engine { name, timeout, .. } => Step::Engine {
+                        name,
+                        args: raw.args.unwrap_or_default(),
+                        timeout,
+                    },
+                })
+                .collect();
+        }
 
         if !p.is_empty() {
             return Err(ValidationError { problems: p });
@@ -557,6 +823,7 @@ impl RawConversion {
             requires: self.requires,
             label: self.label,
             steps,
+            variants,
             origin,
             path: path.map(Path::to_path_buf),
         })
@@ -604,6 +871,83 @@ mod tests {
         assert_eq!(c.steps.len(), 1);
         assert_eq!(c.steps[0].timeout(), DEFAULT_TIMEOUT);
         assert_eq!(c.engines().count(), 0);
+    }
+
+    const JPG_VARIANTS: &str = r#"
+        schema = 1
+        id = "image.to-jpg"
+        category = "images"
+        accepts = ["public.png"]
+        output_ext = "jpg"
+        output_suffix = " q{quality}"
+        requires = ["sips"]
+        label.en = "Convert to JPG"
+        [[steps]]
+        engine = "builtin:image"
+        args = { format = "jpeg", quality = "{quality}", note = "q={quality}" }
+        [[steps]]
+        cmd = ["sips", "-s", "formatOptions", "{quality}", "{input}", "--out", "{output}"]
+        [[variants]]
+        id = "high"
+        label = { en = "High", it = "Alta" }
+        vars = { quality = 95 }
+        [[variants]]
+        id = "medium"
+        default = true
+        label = { en = "Medium" }
+        vars = { quality = 85 }
+    "#;
+
+    #[test]
+    fn variants_resolve_their_variables() {
+        let c = parse(JPG_VARIANTS).unwrap();
+        assert_eq!(c.variants.len(), 2);
+        assert_eq!(c.default_variant(), Some(1));
+        assert_eq!(c.variants[0].label_for(&["it-IT"]), "Alta");
+        assert_eq!(c.variants[1].label_for(&["it"]), "Medium");
+        // Stored unexpanded.
+        assert!(matches!(&c.steps[1], Step::Command { argv, .. } if argv[3] == "{quality}"));
+
+        let high = c.resolve(Some("high")).unwrap();
+        assert!(high.variants.is_empty());
+        assert_eq!(high.output_suffix, " q95");
+        match &high.steps[0] {
+            Step::Engine { args, .. } => {
+                // A whole-value variable keeps its type; inside text it becomes text.
+                assert_eq!(args["quality"], toml::Value::Integer(95));
+                assert_eq!(args["note"], toml::Value::String("q=95".into()));
+            }
+            _ => panic!("engine step expected"),
+        }
+        assert!(
+            matches!(&high.steps[1], Step::Command { argv, .. } if argv[3] == "95" && argv[4] == "{input}")
+        );
+
+        let default = c.resolve(None).unwrap();
+        assert_eq!(default.output_suffix, " q85");
+        assert!(c.resolve(Some("nope")).is_none());
+
+        // Without variants, resolve(None) is the conversion itself.
+        let plain = parse(HEIC).unwrap();
+        assert_eq!(plain.resolve(None).unwrap(), plain);
+        assert!(plain.resolve(Some("high")).is_none());
+    }
+
+    #[test]
+    fn invalid_variants_are_reported() {
+        let one_default = JPG_VARIANTS.replace("default = true", "default = false");
+        assert!(problems(&one_default).contains("exactly one variant"));
+        let bad_var = JPG_VARIANTS.replace("vars = { quality = 95 }", "vars = { other = 95 }");
+        assert!(problems(&bad_var).contains("same variables"));
+        let unknown =
+            JPG_VARIANTS.replace("\"{quality}\", \"{input}\"", "\"{qualty}\", \"{input}\"");
+        assert!(problems(&unknown).contains("unknown placeholder {qualty}"));
+        let braces = JPG_VARIANTS.replace("quality = 95", "quality = \"{output}\"");
+        assert!(problems(&braces).contains("without braces"));
+        let placeholder_name = JPG_VARIANTS.replace("quality", "input");
+        assert!(problems(&placeholder_name).contains("invalid variable name"));
+        let dup = JPG_VARIANTS.replace("id = \"medium\"", "id = \"high\"");
+        assert!(problems(&dup).contains("duplicate variant id"));
     }
 
     #[test]

@@ -241,7 +241,8 @@ impl Drop for JobTempDir {
 }
 
 /// Runs every step of `conversion` for one input, writing the result to `output`
-/// (normally [`crate::output::PendingOutput::temp_path`]).
+/// (normally [`crate::output::PendingOutput::temp_path`]). Pass a conversion resolved
+/// with [`Conversion::resolve`]; one that still has variants runs its default variant.
 pub fn run(
     conversion: &Conversion,
     input: &Path,
@@ -250,6 +251,14 @@ pub fn run(
     engines: &dyn EngineRunner,
     cancel: &CancelToken,
 ) -> Result<(), PipelineError> {
+    let resolved;
+    let conversion = match conversion.resolve(None) {
+        Some(r) if !conversion.variants.is_empty() => {
+            resolved = r;
+            &resolved
+        }
+        _ => conversion,
+    };
     let tmp = JobTempDir::new().map_err(PipelineError::TempDir)?;
     let ctx = StepContext {
         input: input.to_path_buf(),
