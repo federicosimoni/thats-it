@@ -53,21 +53,79 @@ semplicemente non compaiono.
 
 ## Installazione
 
-**Homebrew**
+Richiede **macOS 13 Ventura o successivo**, su Apple silicon o Intel.
+
+### Passo per passo (consigliato)
+
+1. **Scarica.** Apri l'[ultima release](https://github.com/federicosimoni/thats-it/releases/latest)
+   e, sotto **Assets**, fai clic su `Thats-it-<versione>.dmg`.
+2. **Copia in Applicazioni.** Fai doppio clic sul `.dmg` scaricato. Nella finestra che si
+   apre, trascina **That's it** sulla cartella **Applications**. Poi espelli l'immagine disco
+   (il pulsante ⏏ accanto a *That's it* nella barra laterale del Finder) e sposta il `.dmg`
+   nel Cestino.
+3. **Primo avvio — macOS lo blocca.** Apri **Applicazioni** e fai doppio clic su
+   **That's it**. Poiché l'app non è ancora firmata da Apple (vedi sotto), macOS mostra
+   *Impossibile aprire "That's it"* (o *Apple non può verificare che non contenga malware*).
+   Fai clic su **Fine** (o **OK**). È normale.
+4. **Consenti l'apertura una volta.** Apri il **menu Apple ()** → **Impostazioni di Sistema** →
+   **Privacy e sicurezza** e scorri fino alla sezione **Sicurezza**. Accanto a
+   *L'apertura di "That's it" è stata bloccata…* fai clic su **Apri comunque**, conferma
+   con la password o Touch ID, poi fai di nuovo clic su **Apri comunque** nella finestra
+   che compare.
+
+   Il pulsante resta visibile per circa un'ora dopo il tentativo bloccato: se non lo vedi,
+   ripeti il punto 3.
+5. **Fatto.** Il disco di vetro compare in basso a destra sulla scrivania e l'icona nella
+   barra dei menu. Non c'è icona nel Dock. Da ora in poi l'app si apre normalmente.
+6. **Consenti le notifiche** quando macOS lo chiede, per sapere quando una conversione è
+   finita. Se vuoi, attiva **Apri al login** nelle Preferenze (icona nella barra dei menu →
+   Preferenze…).
+
+Su macOS 13 Ventura e 14 Sonoma puoi fare i punti 3–4 in un colpo solo: nel Finder fai
+**Control-clic** (o clic destro) su *That's it* in Applicazioni, scegli **Apri**, poi di
+nuovo **Apri**.
+
+### Con il Terminale
+
+Se preferisci, dopo il punto 2 togli la quarantena del download e apri l'app:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/That's it.app"
+open "/Applications/That's it.app"
+```
+
+### Con Homebrew
 
 ```sh
 brew install --cask federicosimoni/tap/thats-it
 ```
 
-**A mano:** scarica il `.dmg` da [Releases](https://github.com/federicosimoni/thats-it/releases),
-aprilo e trascina *That's it* in Applicazioni.
+Homebrew scarica lo stesso `.dmg`; il primo avvio richiede comunque il punto 4 (o il
+comando `xattr` qui sopra).
 
-Richiede macOS 13 Ventura o successivo, Apple silicon o Intel.
+### Conversioni video e MP3
 
-> [!NOTE]
-> That's it non è ancora notarizzata da Apple, quindi macOS blocca il primo avvio. Apri
-> **Impostazioni di Sistema → Privacy e sicurezza** e fai clic su **Apri comunque**, oppure
-> esegui `xattr -dr com.apple.quarantine "/Applications/That's it.app"`.
+Richiedono [ffmpeg](https://ffmpeg.org). Con [Homebrew](https://brew.sh):
+`brew install ffmpeg`. Senza, quelle conversioni semplicemente non compaiono.
+
+### Perché l'avviso?
+
+Apple lascia aprire senza avvisi solo le app il cui sviluppatore paga un account Apple
+Developer e invia ogni build ad Apple per la notarizzazione. That's it non lo fa ancora.
+L'app viene compilata da questo repository con
+[GitHub Actions](https://github.com/federicosimoni/thats-it/actions/workflows/release.yml)
+e ogni release riporta lo SHA-256 del `.dmg`; puoi confrontarlo con
+`shasum -a 256 ~/Downloads/Thats-it-*.dmg`.
+
+### Aggiornare e disinstallare
+
+- **Aggiornare:** scarica il nuovo `.dmg` e sostituisci l'app in Applicazioni (prima
+  chiudila dalla barra dei menu). macOS potrebbe chiedere di nuovo il consenso (punto 4).
+- **Disinstallare:** chiudi l'app e spostala da Applicazioni al Cestino. Per eliminare
+  anche impostazioni e log, cancella
+  `~/Library/Application Support/io.github.federicosimoni.thatsit`,
+  `~/Library/Logs/io.github.federicosimoni.thatsit` e
+  `~/Library/Preferences/io.github.federicosimoni.thatsit.plist`.
 
 ## Come si usa
 

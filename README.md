@@ -52,21 +52,76 @@ are simply hidden.
 
 ## Install
 
-**Homebrew**
+Requires **macOS 13 Ventura or later**, on Apple silicon or Intel.
+
+### Step by step (recommended)
+
+1. **Download.** Open the [latest release](https://github.com/federicosimoni/thats-it/releases/latest)
+   and, under **Assets**, click `Thats-it-<version>.dmg`.
+2. **Copy to Applications.** Double-click the downloaded `.dmg`. In the window that opens,
+   drag **That's it** onto the **Applications** folder. Then eject the disk image
+   (the ⏏ button next to *That's it* in the Finder sidebar) and move the `.dmg` to the Trash.
+3. **First launch — macOS will block it.** Open **Applications** and double-click
+   **That's it**. Because the app is not signed by Apple yet (see below), macOS shows
+   *"That's it" Not Opened* (or *cannot be opened because Apple cannot check it for
+   malicious software*). Click **Done** (or **OK**). This is expected.
+4. **Allow it once.** Open the **Apple menu ()** → **System Settings** → **Privacy & Security** and scroll
+   down to the **Security** section. Next to *"That's it" was blocked to protect your Mac*,
+   click **Open Anyway**, confirm with your password or Touch ID, then click **Open Anyway**
+   again in the dialog that appears.
+
+   The button only shows up for about an hour after the blocked launch: if you don't see
+   it, repeat step 3.
+5. **Done.** The glass disc appears in the bottom-right corner of your desktop and the tray
+   icon in the menu bar. There is no Dock icon. From now on the app opens normally.
+6. **Allow notifications** when macOS asks, to be told when a conversion is finished.
+   Optionally, turn on **Open at login** in Preferences (menu bar icon → Preferences…).
+
+On macOS 13 Ventura and 14 Sonoma you can also do steps 3–4 in one go: in the Finder,
+**Control-click** (or right-click) *That's it* in Applications, choose **Open**, then
+**Open** again.
+
+### With the Terminal
+
+If you prefer, after step 2 remove the download quarantine and open the app:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/That's it.app"
+open "/Applications/That's it.app"
+```
+
+### With Homebrew
 
 ```sh
 brew install --cask federicosimoni/tap/thats-it
 ```
 
-**Manually:** download the `.dmg` from [Releases](https://github.com/federicosimoni/thats-it/releases),
-open it and drag *That's it* to Applications.
+Homebrew downloads the same `.dmg`; the first launch still needs step 4 (or the `xattr`
+command above).
 
-Requires macOS 13 Ventura or later, Apple silicon or Intel.
+### Video and MP3 conversions
 
-> [!NOTE]
-> That's it is not notarized by Apple yet, so macOS blocks the first launch. Open
-> **System Settings → Privacy & Security** and click **Open Anyway**, or run
-> `xattr -dr com.apple.quarantine "/Applications/That's it.app"`.
+They need [ffmpeg](https://ffmpeg.org). With [Homebrew](https://brew.sh):
+`brew install ffmpeg`. Without it, those conversions are simply hidden.
+
+### Why the warning?
+
+Apple only lets apps open without a warning if their developer pays for an Apple
+Developer account and sends every build to Apple for notarization. That's it does not do
+that yet. The app is built from this repository by
+[GitHub Actions](https://github.com/federicosimoni/thats-it/actions/workflows/release.yml),
+and each release lists the SHA-256 of the `.dmg`; you can compare it with
+`shasum -a 256 ~/Downloads/Thats-it-*.dmg`.
+
+### Update and uninstall
+
+- **Update:** download the new `.dmg` and replace the app in Applications (quit it first
+  from the menu bar). macOS may ask you to allow it again (step 4).
+- **Uninstall:** quit the app and move it from Applications to the Trash. To remove its
+  settings and logs too, delete
+  `~/Library/Application Support/io.github.federicosimoni.thatsit`,
+  `~/Library/Logs/io.github.federicosimoni.thatsit` and
+  `~/Library/Preferences/io.github.federicosimoni.thatsit.plist`.
 
 ## How to use it
 

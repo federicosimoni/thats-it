@@ -108,6 +108,9 @@ jobs:
           - **Homebrew:** \`brew install --cask federicosimoni/tap/thats-it\`
           - **Manually:** open the .dmg and drag *That's it* to Applications.
 
+          Step-by-step instructions: [English](https://github.com/federicosimoni/thats-it#install) ·
+          [Italiano](https://github.com/federicosimoni/thats-it/blob/main/README.it.md#installazione)
+
           $GATEKEEPER
 
           Universal binary (Apple silicon + Intel), macOS 13 Ventura or later.
