@@ -14,9 +14,7 @@
 
 [English](README.md) · Italiano
 
-<!-- Demo GIF, enabled once docs/assets/demo.gif is added:
-<img src="docs/assets/demo.gif" width="560" alt="Una foto HEIC trascinata sul widget: si apre il ring e la foto viene convertita in JPG">
--->
+<img src="docs/assets/demo.gif" width="640" alt="Una foto JPG trascinata sul widget: si apre l'anello delle conversioni compatibili e la foto viene convertita">
 
 </div>
 
