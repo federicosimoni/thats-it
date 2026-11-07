@@ -62,6 +62,19 @@ jobs:
           screencapture -x screenshot.png || true
           kill "$PID"
           echo "--- app log ---"; cat thatsit.log
+      - name: Command line — help, list, list for files (used by Shortcuts)
+        run: |
+          BIN=./target/aarch64-apple-darwin/debug/thatsit
+          $BIN --help
+          $BIN --version | grep -q "That's it"
+          $BIN --list | tee list-all.txt
+          grep -q "^image.to-jpg" list-all.txt
+          printf '# Title\n' > notes.md
+          $BIN --list notes.md | tee list-md.txt
+          grep -q "^document.markdown-to-pdf" list-md.txt
+          # The plain-text PDF conversion is hidden for Markdown (specific beats generic).
+          ! grep -q "^document.to-pdf" list-md.txt
+          if $BIN --bogus 2>/dev/null; then echo "::error::unknown option accepted"; exit 1; fi
       - name: App engines — documents to PDF and PDF pages to PNG
         run: |
           BIN=./target/aarch64-apple-darwin/debug/thatsit
