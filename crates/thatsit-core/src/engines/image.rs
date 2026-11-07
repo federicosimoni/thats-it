@@ -4,7 +4,7 @@
 //! - `format`: `png`, `jpeg`, `tiff`, `bmp`, `gif` or `webp` (lossless only). Defaults to
 //!   the output file's extension (useful with `output_ext = "same"`).
 //! - `quality` (JPEG only, 1–100, default 85).
-//! - `scale` (0.01–1.0): resize by this factor.
+//! - `scale` (0.01–8.0): resize by this factor (below 1 shrinks, above 1 enlarges).
 //! - `max_size` (1–65535): shrink so the longest side is at most this many pixels
 //!   (never enlarges).
 //!
@@ -19,6 +19,9 @@ use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader, Rgba, RgbaImag
 
 use super::{arg_float, arg_int, arg_str, io_err};
 use crate::pipeline::StepContext;
+
+/// Largest result an enlargement may produce (keeps memory use reasonable).
+const MAX_PIXELS: u64 = 200_000_000;
 
 pub(super) fn run(args: &toml::Table, ctx: &StepContext) -> Result<(), String> {
     let from_ext = ctx
@@ -37,13 +40,19 @@ pub(super) fn run(args: &toml::Table, ctx: &StepContext) -> Result<(), String> {
     };
     let format = format.as_str();
     let quality = arg_int(args, "quality", 1..=100)?.unwrap_or(85) as u8;
-    let scale = arg_float(args, "scale", 0.01..=1.0)?;
+    let scale = arg_float(args, "scale", 0.01..=8.0)?;
     let max_size = arg_int(args, "max_size", 1..=65535)?.map(|n| n as u32);
 
     let mut img = load(ctx)?;
     if let Some(s) = scale {
         let w = ((img.width() as f64 * s).round() as u32).max(1);
         let h = ((img.height() as f64 * s).round() as u32).max(1);
+        if u64::from(w) * u64::from(h) > MAX_PIXELS {
+            return Err(format!(
+                "the result would be {w}×{h} pixels, more than {} megapixels",
+                MAX_PIXELS / 1_000_000
+            ));
+        }
         img = img.resize_exact(w, h, FilterType::Lanczos3);
     }
     if let Some(max) = max_size
@@ -181,6 +190,12 @@ mod tests {
         let out = dir.path().join("half.png");
         run(&table("format = \"png\"\nscale = 0.5"), &ctx(&input, &out)).unwrap();
         assert_eq!(image::open(&out).unwrap().width(), 20);
+
+        let out = dir.path().join("double.png");
+        run(&table("format = \"png\"\nscale = 2.0"), &ctx(&input, &out)).unwrap();
+        assert_eq!(image::open(&out).unwrap().width(), 80);
+        let out = dir.path().join("huge.png");
+        assert!(run(&table("format = \"png\"\nscale = 9.0"), &ctx(&input, &out)).is_err());
 
         let out = dir.path().join("max.png");
         run(

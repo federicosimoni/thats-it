@@ -151,7 +151,7 @@ a shell.
 
 | Engine | What it does | `args` |
 |---|---|---|
-| `builtin:image` | Converts raster images (PNG, JPEG, TIFF, BMP, GIF, WebP; HEIC is read by `sips` instead) and resizes them. EXIF orientation is applied. | `format`: `png`, `jpeg`, `tiff`, `bmp`, `gif`, `webp` (lossless); default = output extension. `quality`: 1–100 (JPEG, default 85). `scale`: 0.01–1.0. `max_size`: longest side in px (never enlarges). |
+| `builtin:image` | Converts raster images (PNG, JPEG, TIFF, BMP, GIF, WebP; HEIC is read by `sips` instead) and resizes them. EXIF orientation is applied. | `format`: `png`, `jpeg`, `tiff`, `bmp`, `gif`, `webp` (lossless); default = output extension. `quality`: 1–100 (JPEG, default 85). `scale`: 0.01–8.0 (above 1 enlarges, up to 200 megapixels). `max_size`: longest side in px (never enlarges). |
 | `builtin:svg-to-png` | Renders SVG (with system fonts) to PNG. | `scale`: 0.1–16, default 2. |
 | `builtin:strip-metadata` | Removes EXIF/GPS, XMP, IPTC and comments from JPEG, PNG and WebP **without re-encoding**; keeps the colour profile. | — |
 | `builtin:optimize-png` | Lossless PNG optimisation (oxipng). | `level`: 0–6, default 2. |
