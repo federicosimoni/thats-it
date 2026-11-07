@@ -190,6 +190,10 @@ cmd = ["sips", "-s", "format", "jpeg", "{input}", "--out", "{output}"]
 Placeholders: `{input}`, `{output}`, `{stem}`, `{dir}`, `{tmpdir}`. Multi-step pipelines pass data
 through `{tmpdir}`.
 
+Variants (v2): optional `[[variants]]` (id, label, `default = true` on exactly one, `vars = {…}`); the
+variables are used as `{name}` in steps and `output_suffix` and expanded by `Conversion::resolve`.
+Resting on a conversion opens the variants ring (`menu::VARIANT_DWELL`); see `docs/conversions.md`.
+
 **Security rules (non-negotiable):**
 - Commands are executed as **argv arrays — never through a shell**. Placeholders are substituted
   inside individual arguments only; no word splitting, no globbing.

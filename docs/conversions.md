@@ -57,6 +57,7 @@ cmd = ["sips", "-s", "format", "jpeg", "{input}", "--out", "{output}"]
 | `requires` | no | Bare names of the command-line tools the steps use. If any is missing, the conversion is **hidden** (Preferences explains what to install). |
 | `[label]` | yes | Localized menu label per language tag. `en` is required and is the fallback. |
 | `[[steps]]` | yes | One or more steps, run in order. |
+| `[[variants]]` | no | Alternatives offered in a second ring, e.g. JPG quality (see [Variants](#variants)). |
 
 **How the ring is filled.** The ring shows the conversions that accept *every* dragged
 file. Two rules keep it readable:
@@ -108,6 +109,43 @@ the step is an engine (engines always receive the output path).
 
 Placeholders can appear anywhere inside an argument (`"{tmpdir}/icon.iconset"`). Use `{{`
 and `}}` for literal braces.
+
+### Variants
+
+A conversion can offer up to 8 alternatives. In the ring, **resting** on the conversion
+(about 0.6 s; its label ends with "…") opens a second ring with the variants; a plain drop
+uses the default variant. The default variant is drawn in the same direction as the
+conversion, so resting and then dropping without moving still gives the default. Rest on
+the centre to go back. The Finder service shows them as a submenu and the command line
+takes `<id>:<variant>` (`thatsit --list` shows them).
+
+Each variant sets values for **variables**, used as `{name}` in `cmd` arguments, engine
+`args` and `output_suffix`, like placeholders:
+
+```toml
+output_suffix = " {percent}%"
+
+[[steps]]
+engine = "builtin:image"
+args   = { scale = "{scale}" }     # exactly "{name}": keeps the number type
+
+[[variants]]
+id    = "25"
+label = { en = "25%" }
+vars  = { scale = 0.25, percent = 25 }
+
+[[variants]]
+id      = "50"
+default = true
+label   = { en = "50%" }
+vars    = { scale = 0.5, percent = 50 }
+```
+
+Rules: exactly one variant has `default = true`; every variant sets the same variables;
+variable names use lowercase letters, digits and `_` and cannot be a placeholder name;
+values are numbers, booleans or short strings without braces. Variant ids follow the same
+rules as conversion ids. Values are inserted inside one argument, never split or passed to
+a shell.
 
 ## Builtin engines
 

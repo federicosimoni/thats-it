@@ -47,6 +47,9 @@ The app has a command line that the Shortcuts action **Run Shell Script** can ca
 Now Control-click images in the Finder → **Quick Actions → Convert to JPG**. The same
 shortcut can be run from the menu bar, Spotlight, a keyboard shortcut or Siri.
 
+Conversions with variants (JPG quality, resize steps…) take `<id>:<variant>`, e.g.
+`--convert image.to-jpg:high photo.png`; without a variant the default one is used.
+
 ### Which id?
 
 List every conversion available on your Mac, or only those that apply to some files:
@@ -71,7 +74,7 @@ one). Conversions you switched off in Preferences can still be run by id.
 ## Command-line reference
 
 ```text
-thatsit --convert <conversion-id> <file>...   convert files, print OK/FAILED per file
+thatsit --convert <id>[:<variant>] <file>...  convert files, print OK/FAILED per file
 thatsit --list [<file>...]                    list conversions (only those for <file>s)
 thatsit --help | --version
 ```

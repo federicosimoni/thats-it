@@ -69,6 +69,12 @@ jobs:
           $BIN --version | grep -q "That's it"
           $BIN --list | tee list-all.txt
           grep -q "^image.to-jpg" list-all.txt
+          grep -q "^image.to-jpg:high" list-all.txt
+          cp resources/AppIcon.svg icon.svg
+          $BIN --convert image.svg-to-png icon.svg
+          $BIN --convert image.to-jpg:small icon.png | tee convert.txt
+          grep -q "^OK " convert.txt
+          if $BIN --convert image.to-jpg:nope icon.png 2>/dev/null; then echo "::error::bad variant accepted"; exit 1; fi
           printf '# Title\n' > notes.md
           $BIN --list notes.md | tee list-md.txt
           grep -q "^document.markdown-to-pdf" list-md.txt

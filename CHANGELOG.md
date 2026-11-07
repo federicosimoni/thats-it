@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Conversion variants: resting on "Convert to JPG …", "Resize by % …", "Resize to max
+  size …", "Compress video …" or "Pages to PNG …" opens a second ring with options
+  (JPG quality, 25/50/75%, 1280/1920/3840 px, compression strength, 72/144/300 dpi).
+  A quick drop uses the default. The Finder service shows them as a submenu; the command
+  line takes `<id>:<variant>`.
+- `[[variants]]` in conversion files, with `{name}` variables (see `docs/conversions.md`).
+
 ## [0.3.0] — 2026-11-07
 
 ### Added
