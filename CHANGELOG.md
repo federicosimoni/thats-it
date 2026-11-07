@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-11-07
+
 ### Fixed
 
 - With a PNG, "Convert to WebP" was silently left out of the ring (nine image conversions,
@@ -17,6 +19,8 @@ All notable changes to this project are documented here. The format is based on
 
 - Preferences show the source formats of conversions that share a label, e.g.
   "Convert to PNG — from HEIC".
+- Step-by-step installation guide for the unsigned app in both READMEs and the release
+  notes.
 
 ## [0.1.0] — 2026-11-07
 
@@ -44,5 +48,6 @@ First public release.
 - English and Italian localization (Project Fluent).
 - Universal (Apple silicon + Intel) app bundle and `.dmg`, Homebrew cask.
 
-[Unreleased]: https://github.com/federicosimoni/thats-it/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/federicosimoni/thats-it/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/federicosimoni/thats-it/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/federicosimoni/thats-it/releases/tag/v0.1.0
