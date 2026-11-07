@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- With a PNG, "Convert to WebP" was silently left out of the ring (nine image conversions,
+  eight fit). Images → PDF now lives in the Documents category.
+- Markdown files no longer show "Convert to Word / HTML / PDF" twice: the Markdown-aware
+  conversion wins over the plain-text one.
+
+### Changed
+
+- Preferences show the source formats of conversions that share a label, e.g.
+  "Convert to PNG — from HEIC".
+
 ## [0.1.0] — 2026-11-07
 
 First public release.

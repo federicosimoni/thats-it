@@ -58,6 +58,18 @@ cmd = ["sips", "-s", "format", "jpeg", "{input}", "--out", "{output}"]
 | `[label]` | yes | Localized menu label per language tag. `en` is required and is the fallback. |
 | `[[steps]]` | yes | One or more steps, run in order. |
 
+**How the ring is filled.** The ring shows the conversions that accept *every* dragged
+file. Two rules keep it readable:
+
+- **Specific beats generic.** If two matching conversions produce the same kind of output
+  and only one of them lists the file's extension in `accepts_ext`, only that one is
+  shown. A Markdown file is also plain text, but "Convert to PDF" uses the Markdown
+  conversion, not the plain-text one.
+- **At most 8 per ring.** With more than 8 matches the first ring shows the categories, and
+  each category ring holds at most 8 conversions. A bundled-conversions test fails if any
+  common file type would exceed that, so choose `category` with this in mind (for example,
+  images → PDF is in `documents`).
+
 ### Steps
 
 Each step is **either** a command **or** a builtin engine.
