@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- Notifications are shown even while That's it is the active app, and permission or
+  delivery errors are written to the log.
+
 ## [0.1.1] — 2026-11-07
 
 ### Fixed
