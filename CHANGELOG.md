@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Enlarge by %** (150 / 200 / 300%), with its own "arrows out" icon. The image engine's
+  `scale` now goes up to 8.
+
+### Changed
+
+- Shrinking and enlarging are separate: "Shrink by %" and "Shrink to max size" only ever
+  make images smaller. "Shrink to max size" now uses the built-in image engine, so it no
+  longer enlarges small images (it no longer accepts HEIC: convert to JPG first).
+- "Make app icon (ICNS)" moved to Utilities, so every image conversion still fits in the
+  ring.
+
 ## [0.4.0] — 2026-11-07
 
 ### Added

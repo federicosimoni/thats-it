@@ -40,10 +40,10 @@ next to the original. No windows, no dialogs, no uploads: everything runs on you
 
 | Category | Conversions |
 |---|---|
-| **Images** | PNG, JPG, TIFF, BMP, GIF, WebP (lossless) in any direction · HEIC → JPG/PNG · SVG → PNG · PNG → app icon (ICNS) · resize 25 / 50 / 75% · resize to max 1280 / 1920 / 3840 px · JPG quality · images → PDF |
+| **Images** | PNG, JPG, TIFF, BMP, GIF, WebP (lossless) in any direction · HEIC → JPG/PNG · SVG → PNG · shrink to 25 / 50 / 75% · shrink to max 1280 / 1920 / 3840 px (never enlarges) · enlarge to 150 / 200 / 300% · JPG quality · images → PDF |
 | **Audio & video** | WAV, AIFF, M4A (AAC), CAF · → MP3¹ · MOV → MP4¹ · compress video¹ · video → GIF¹ · extract audio¹ |
 | **Documents** | DOCX, DOC, RTF, ODT, HTML, TXT in any direction · those → PDF · Markdown → HTML/PDF/DOCX · PDF pages → PNG |
-| **Utilities** | compress to ZIP · remove photo metadata (EXIF/GPS) without re-encoding · optimize PNG losslessly |
+| **Utilities** | compress to ZIP · PNG → app icon (ICNS) · remove photo metadata (EXIF/GPS) without re-encoding · optimize PNG losslessly |
 
 ¹ Needs [ffmpeg](https://ffmpeg.org): `brew install ffmpeg`. Without it these conversions
 are simply hidden.
@@ -127,8 +127,8 @@ and each release lists the SHA-256 of the `.dmg`; you can compare it with
 2. The ring opens. Move towards a conversion; it lights up.
 3. Let go. A progress ring runs around the disc and a notification tells you when it is done.
 
-**Options:** some conversions end with "…" (JPG quality, resize, video compression, PDF
-resolution). Rest on them for a moment and a second ring with the options opens; a quick
+**Options:** some conversions end with "…" (JPG quality, shrink, enlarge, video
+compression, PDF resolution). Rest on them for a moment and a second ring with the options opens; a quick
 drop uses the default.
 
 To cancel, let go in the middle of the ring or drag away. When there are more than eight
