@@ -146,6 +146,14 @@ nasconde il widget, annulla una conversione in corso e apre la cartella delle tu
 
 Il widget sta sulla scrivania, sotto le finestre, quindi è nascosto dalle app a tutto schermo.
 
+## Menu del Finder e Comandi Rapidi
+
+Quando la scrivania è coperta, fai Control-clic sui file nel Finder e scegli
+**Converti con That's it…**: le conversioni per quei file compaiono in un menu sotto il
+puntatore. Per le automazioni l'app ha una riga di comando che l'azione *Esegui script
+shell* di **Comandi Rapidi** può usare, per esempio per creare un'Azione rapida
+"Converti in JPG". Vedi [docs/shortcuts.md](docs/shortcuts.md) (in inglese).
+
 ## Aggiungere conversioni
 
 Metti un file `.toml` in

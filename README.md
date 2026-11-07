@@ -142,6 +142,14 @@ cancels a running conversion and opens the folder for your own conversions.
 The widget sits on the desktop, under your windows, so it is hidden behind full-screen
 apps.
 
+## Finder menu and Shortcuts
+
+When the desktop is covered, Control-click files in the Finder and choose
+**Convert with That's it…**: the conversions for those files appear in a menu at the
+pointer. For automations, the app has a command line that the **Shortcuts** action
+*Run Shell Script* can call, e.g. to build a "Convert to JPG" Quick Action. See
+[docs/shortcuts.md](docs/shortcuts.md).
+
 ## Add your own conversions
 
 Drop a `.toml` file into

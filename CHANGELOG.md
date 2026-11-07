@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Finder service **Convert with That's it…** (Control-click files → Services / Quick
+  Actions): a menu of the compatible conversions at the pointer, run like a drop.
+- Command line for Shortcuts and scripts: `--list [files]` lists the conversion ids,
+  `--help` and `--version`; guide in `docs/shortcuts.md`.
+
 ## [0.1.2] — 2026-11-07
 
 ### Fixed

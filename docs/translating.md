@@ -11,6 +11,7 @@ never translated.
 | UI strings (menu bar, Preferences, notifications, ring categories) | `locales/<lang>/main.ftl` |
 | Conversion names shown in the ring | the `[label]` table of each file in `conversions/` (e.g. `it = "Converti in JPG"`) |
 | App name/copyright shown by macOS | `resources/<lang>.lproj/InfoPlist.strings` |
+| Finder service name ("Convert with That's it…") | `resources/<lang>.lproj/ServicesMenu.strings` |
 
 ## Adding a language
 

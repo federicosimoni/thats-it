@@ -31,10 +31,12 @@ The rule: anything that can be tested without AppKit lives in `thatsit-core`.
 
 | Module | What it does |
 |---|---|
-| `main` | Accessory app (no Dock icon), wiring, `--convert` and demo modes |
+| `main` | Accessory app (no Dock icon), wiring, command-line and demo modes |
 | `window` | The borderless, transparent window at desktop-icon level + 1, on every Space |
 | `ring_view` | The `NSView` subclass: glass disc, sector layers, drag destination, Option-drag snapping, progress ring |
 | `files` | Reading file URLs and UTTypes from the dragging pasteboard |
+| `service` | The Finder service "Convert with That's it…": a menu of compatible conversions at the pointer |
+| `cli` | `--convert`, `--list`, `--help` (Shortcuts, scripts, CI) |
 | `catalog` | Loads the registry, checks tools, holds the UI language |
 | `jobs` | Runs batches on a worker thread and reports back on the main queue |
 | `app_engines` | Engines that need AppKit/PDFKit: `doc-to-pdf`, `pdf-to-images` |
