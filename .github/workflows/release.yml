@@ -86,6 +86,11 @@ jobs:
           cd target/bundle
           shasum -a 256 "Thats-it-$VERSION.dmg" | tee "Thats-it-$VERSION.dmg.sha256"
           echo "SHA256=$(cut -d' ' -f1 "Thats-it-$VERSION.dmg.sha256")" >> "$GITHUB_ENV"
+      - name: Create the tag (manual runs)
+        if: github.ref_type != 'tag'
+        run: |
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "$TAG"
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -110,7 +115,7 @@ jobs:
 
           SHA-256: \`$SHA256\`
           NOTES
-          gh release create "$TAG" --target "$GITHUB_SHA" \
+          gh release create "$TAG" --verify-tag \
             "target/bundle/Thats-it-$VERSION.dmg" \
             "target/bundle/Thats-it-$VERSION.dmg.sha256" \
             --title "That's it $VERSION" --notes-file notes.md

@@ -20,10 +20,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          yq -o=json '.' .github/labels.yml | jq -c '.[]' | while read -r label; do
+          failed=0
+          while read -r label; do
             name=$(jq -r .name <<<"$label")
-            gh label create "$name" \
-              --color "$(jq -r .color <<<"$label")" \
+            color=$(jq -r .color <<<"$label")
+            echo "label: $name ($color)"
+            gh label create "$name" --color "$color" \
               --description "$(jq -r .description <<<"$label")" \
-              --force --repo "$GITHUB_REPOSITORY"
-          done
+              --force --repo "$GITHUB_REPOSITORY" || failed=1
+          done < <(yq -o=json '.' .github/labels.yml | jq -c '.[]')
+          exit $failed
