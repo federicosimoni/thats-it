@@ -41,10 +41,10 @@ sul tuo Mac.
 
 | Categoria | Conversioni |
 |---|---|
-| **Immagini** | PNG, JPG, TIFF, BMP, GIF, WebP (lossless) in tutte le direzioni · HEIC → JPG/PNG · SVG → PNG · riduci al 25 / 50 / 75% · riduci a lato max 1280 / 1920 / 3840 px (non ingrandisce mai) · aumenta al 150 / 200 / 300% · qualità JPG · immagini → PDF |
+| **Immagini** | PNG, JPG, TIFF, BMP, GIF, WebP (lossless) in tutte le direzioni · HEIC → JPG/PNG · SVG → PNG · PNG → icona app (ICNS) · riduci al 25 / 50 / 75% · aumenta al 150 / 200 / 300% · qualità JPG · immagini → PDF |
 | **Audio e video** | WAV, AIFF, M4A (AAC), CAF · → MP3¹ · MOV → MP4¹ · comprimi video¹ · video → GIF¹ · estrai audio¹ |
 | **Documenti** | DOCX, DOC, RTF, ODT, HTML, TXT in tutte le direzioni · questi → PDF · Markdown → HTML/PDF/DOCX · pagine PDF → PNG |
-| **Utility** | comprimi in ZIP · PNG → icona app (ICNS) · rimuovi i metadati delle foto (EXIF/GPS) senza ricodificare · ottimizza PNG senza perdita |
+| **Utility** | comprimi in ZIP · rimuovi i metadati delle foto (EXIF/GPS) senza ricodificare · ottimizza PNG senza perdita |
 
 ¹ Richiede [ffmpeg](https://ffmpeg.org): `brew install ffmpeg`. Senza, queste conversioni
 semplicemente non compaiono.

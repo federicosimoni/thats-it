@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- Smaller text in the ring (11 pt instead of 12 pt).
+- "Make app icon (ICNS)" is back in Images.
+
+### Removed
+
+- "Shrink to max size": "Shrink by %" and "Enlarge by %" already keep the proportions.
+
 ## [0.5.0] — 2026-11-07
 
 ### Added
