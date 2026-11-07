@@ -1,0 +1,41 @@
+# Enlarge by a percentage (same format), with the pure-Rust image engine (Lanczos).
+schema     = 1
+id         = "image.enlarge"
+category   = "images"
+icon       = "arrow.up.left.and.arrow.down.right"
+accepts    = [
+  "public.png",
+  "public.jpeg",
+  "public.tiff",
+  "com.microsoft.bmp",
+  "com.compuserve.gif",
+  "org.webmproject.webp",
+]
+accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp"]
+output_ext = "same"
+output_suffix = " {percent}%"
+
+[label]
+en = "Enlarge by %"
+it = "Aumenta in %"
+
+[[steps]]
+engine = "builtin:image"
+args = { scale = "{scale}" }
+timeout_secs = 600
+
+[[variants]]
+id    = "150"
+label = { en = "150%", it = "150%" }
+vars  = { scale = 1.5, percent = 150 }
+
+[[variants]]
+id      = "200"
+default = true
+label   = { en = "200%", it = "200%" }
+vars    = { scale = 2.0, percent = 200 }
+
+[[variants]]
+id    = "300"
+label = { en = "300%", it = "300%" }
+vars  = { scale = 3.0, percent = 300 }

@@ -2,7 +2,7 @@
 # Use a square PNG of at least 1024×1024 for the best result.
 schema     = 1
 id         = "image.png-to-icns"
-category   = "images"
+category   = "utilities"
 icon       = "app.dashed"
 accepts    = ["public.png"]
 accepts_ext = ["png"]

@@ -1,4 +1,4 @@
-# Resize to 50% (same format), with the pure-Rust image engine.
+# Shrink by a percentage (same format), with the pure-Rust image engine.
 schema     = 1
 id         = "image.resize-50"
 category   = "images"
@@ -16,7 +16,7 @@ output_ext = "same"
 output_suffix = " {percent}%"
 
 [label]
-en = "Resize by %"
+en = "Shrink by %"
 it = "Riduci in %"
 
 [[steps]]
