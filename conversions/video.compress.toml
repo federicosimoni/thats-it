@@ -14,5 +14,22 @@ en = "Compress video"
 it = "Comprimi video"
 
 [[steps]]
-cmd = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-i", "{input}", "-vf", "scale='min(1920,iw)':-2", "-c:v", "libx264", "-crf", "28", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "{output}"]
+cmd = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-i", "{input}", "-vf", "scale='min(1920,iw)':-2", "-c:v", "libx264", "-crf", "{crf}", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "{output}"]
 timeout_secs = 7200
+
+# Higher CRF = smaller file, lower quality.
+[[variants]]
+id    = "light"
+label = { en = "Light", it = "Leggera" }
+vars  = { crf = 23 }
+
+[[variants]]
+id      = "medium"
+default = true
+label   = { en = "Medium", it = "Media" }
+vars    = { crf = 28 }
+
+[[variants]]
+id    = "strong"
+label = { en = "Strong", it = "Forte" }
+vars  = { crf = 32 }

@@ -19,4 +19,21 @@ it = "Converti in JPG"
 
 [[steps]]
 engine = "builtin:image"
-args = { format = "jpeg", quality = 90 }
+args = { format = "jpeg", quality = "{quality}" }
+
+# Rest on "Convert to JPG" in the ring to choose the quality.
+[[variants]]
+id    = "high"
+label = { en = "High quality", it = "Alta qualità" }
+vars  = { quality = 95 }
+
+[[variants]]
+id      = "medium"
+default = true
+label   = { en = "Medium", it = "Media" }
+vars    = { quality = 85 }
+
+[[variants]]
+id    = "small"
+label = { en = "Small file", it = "File leggero" }
+vars  = { quality = 70 }

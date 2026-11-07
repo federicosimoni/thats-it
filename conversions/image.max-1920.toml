@@ -14,12 +14,29 @@ accepts    = [
 ]
 accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "heic", "heif", "bmp", "gif"]
 output_ext = "same"
-output_suffix = " 1920px"
+output_suffix = " {size}px"
 requires   = ["sips"]
 
 [label]
-en = "Resize to max 1920 px"
-it = "Riduci a max 1920 px"
+en = "Resize to max size"
+it = "Riduci a lato max"
 
 [[steps]]
-cmd = ["sips", "-Z", "1920", "{input}", "--out", "{output}"]
+cmd = ["sips", "-Z", "{size}", "{input}", "--out", "{output}"]
+
+# The id keeps its historical name so that Preferences settings survive.
+[[variants]]
+id    = "1280"
+label = { en = "1280 px", it = "1280 px" }
+vars  = { size = 1280 }
+
+[[variants]]
+id      = "1920"
+default = true
+label   = { en = "1920 px", it = "1920 px" }
+vars    = { size = 1920 }
+
+[[variants]]
+id    = "3840"
+label = { en = "3840 px (4K)", it = "3840 px (4K)" }
+vars  = { size = 3840 }

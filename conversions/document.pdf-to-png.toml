@@ -13,5 +13,21 @@ it = "Pagine in PNG"
 
 [[steps]]
 engine = "builtin:pdf-to-images"
-args = { dpi = 144 }
+args = { dpi = "{dpi}" }
 timeout_secs = 1800
+
+[[variants]]
+id    = "screen"
+label = { en = "Screen (72 dpi)", it = "Schermo (72 dpi)" }
+vars  = { dpi = 72 }
+
+[[variants]]
+id      = "standard"
+default = true
+label   = { en = "Standard (144 dpi)", it = "Standard (144 dpi)" }
+vars    = { dpi = 144 }
+
+[[variants]]
+id    = "print"
+label = { en = "Print (300 dpi)", it = "Stampa (300 dpi)" }
+vars  = { dpi = 300 }

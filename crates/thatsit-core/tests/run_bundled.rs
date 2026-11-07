@@ -306,7 +306,22 @@ fn run_every_bundled_conversion() {
     let out_dir = dir.path().join("out");
     fs::create_dir(&out_dir).unwrap();
 
-    for conversion in registry.conversions() {
+    // Every variant of every conversion.
+    let resolved: Vec<_> = registry
+        .conversions()
+        .iter()
+        .flat_map(|c| {
+            if c.variants.is_empty() {
+                vec![c.clone()]
+            } else {
+                c.variants
+                    .iter()
+                    .filter_map(|v| c.resolve(Some(&v.id)))
+                    .collect()
+            }
+        })
+        .collect();
+    for conversion in &resolved {
         if !availability.can_run(conversion) {
             let mut missing = availability.missing_tools(conversion);
             missing.extend(availability.missing_engines(conversion));

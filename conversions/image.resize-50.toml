@@ -13,12 +13,29 @@ accepts    = [
 ]
 accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp"]
 output_ext = "same"
-output_suffix = " 50%"
+output_suffix = " {percent}%"
 
 [label]
-en = "Resize 50%"
-it = "Riduci al 50%"
+en = "Resize by %"
+it = "Riduci in %"
 
 [[steps]]
 engine = "builtin:image"
-args = { scale = 0.5 }
+args = { scale = "{scale}" }
+
+# The id keeps its historical name so that Preferences settings survive.
+[[variants]]
+id    = "25"
+label = { en = "25%", it = "25%" }
+vars  = { scale = 0.25, percent = 25 }
+
+[[variants]]
+id      = "50"
+default = true
+label   = { en = "50%", it = "50%" }
+vars    = { scale = 0.5, percent = 50 }
+
+[[variants]]
+id    = "75"
+label = { en = "75%", it = "75%" }
+vars  = { scale = 0.75, percent = 75 }
