@@ -1,7 +1,7 @@
 # Image → PDF, using the built-in `sips` tool.
 schema     = 1
 id         = "image.to-pdf"
-category   = "images"
+category   = "documents"
 icon       = "doc.richtext"
 accepts    = [
   "public.png",
