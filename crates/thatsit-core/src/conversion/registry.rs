@@ -178,16 +178,40 @@ impl Registry {
     }
 
     /// Conversions that accept **every** file in `files` and can run on this machine.
+    ///
+    /// When two matches produce the same kind of file and one of them names the files'
+    /// extension while the other only accepts them through a supertype (Markdown is also
+    /// plain text), only the specific one is kept: "Convert to PDF" should render the
+    /// Markdown, not print its source.
     pub fn matching(&self, files: &[FileInfo], availability: &Availability) -> Vec<&Conversion> {
         if files.is_empty() {
             return Vec::new();
         }
-        self.conversions
+        let matches: Vec<&Conversion> = self
+            .conversions
             .iter()
             .filter(|c| files.iter().all(|f| accepts(c, f)))
             .filter(|c| availability.can_run(c))
+            .collect();
+        let specific = |c: &Conversion| files.iter().all(|f| accepts_by_ext(c, f));
+        matches
+            .iter()
+            .copied()
+            .filter(|c| {
+                specific(c)
+                    || !matches
+                        .iter()
+                        .any(|o| o.id != c.id && o.output == c.output && specific(o))
+            })
             .collect()
     }
+}
+
+/// Whether `file`'s extension is listed in `conversion.accepts_ext`.
+fn accepts_by_ext(conversion: &Conversion, file: &FileInfo) -> bool {
+    file.ext
+        .as_deref()
+        .is_some_and(|e| conversion.accepts_ext.iter().any(|a| a == e))
 }
 
 /// Whether `conversion` accepts `file` (by UTType conformance, else by extension).
@@ -196,11 +220,7 @@ pub fn accepts(conversion: &Conversion, file: &FileInfo) -> bool {
         .accepts
         .iter()
         .any(|a| file.types.iter().any(|t| t.eq_ignore_ascii_case(a)));
-    let by_ext = file
-        .ext
-        .as_deref()
-        .is_some_and(|e| conversion.accepts_ext.iter().any(|a| a == e));
-    by_type || by_ext
+    by_type || accepts_by_ext(conversion, file)
 }
 
 #[cfg(test)]
@@ -215,9 +235,11 @@ mod tests {
                 .join(", ")
         };
         let program = requires.first().copied().unwrap_or("/usr/bin/true");
+        // A distinct output per conversion, so the "specific wins" rule does not apply.
+        let out: String = id.chars().filter(char::is_ascii_alphanumeric).collect();
         format!(
             "schema = 1\nid = {id:?}\ncategory = \"images\"\naccepts = [{}]\naccepts_ext = [{}]\n\
-             output_ext = \"out\"\nrequires = [{}]\nlabel.en = \"{id}\"\n\
+             output_ext = \"{out}\"\nrequires = [{}]\nlabel.en = \"{id}\"\n\
              [[steps]]\ncmd = [{program:?}, \"{{input}}\", \"{{output}}\"]\n",
             q(accepts),
             q(exts),
@@ -279,6 +301,61 @@ mod tests {
             .map(|c| c.id.as_str())
             .collect();
         assert_eq!(ids, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn specific_conversion_hides_generic_one_with_the_same_output() {
+        let same_output = |c: String| {
+            c.replace(
+                &format!(
+                    "output_ext = \"{}\"",
+                    c.split('"').nth(1).unwrap().replace('-', "")
+                ),
+                "output_ext = \"pdf\"",
+            )
+        };
+        let r = registry(&[
+            same_output(conv(
+                "md-to-pdf",
+                &["net.daringfireball.markdown"],
+                &["md"],
+                &[],
+            )),
+            same_output(conv("text-to-pdf", &["public.plain-text"], &["txt"], &[])),
+            conv("text-to-rtf", &["public.plain-text"], &["txt"], &[]),
+        ]);
+        let ids = |f: FileInfo| -> Vec<String> {
+            r.matching(&[f], &all_available())
+                .iter()
+                .map(|c| c.id.clone())
+                .collect()
+        };
+        let text = |name: &str, types: &[&str]| {
+            FileInfo::new(
+                Path::new(name),
+                types.iter().map(|t| t.to_string()).collect(),
+            )
+        };
+        // Markdown is plain text too, but only the Markdown PDF conversion is offered.
+        assert_eq!(
+            ids(text(
+                "/x/notes.md",
+                &["net.daringfireball.markdown", "public.plain-text"]
+            )),
+            vec!["md-to-pdf", "text-to-rtf"]
+        );
+        assert_eq!(
+            ids(text("/x/notes.txt", &["public.plain-text"])),
+            vec!["text-to-pdf", "text-to-rtf"]
+        );
+        // Without an extension nothing is "specific", so nothing is hidden.
+        assert_eq!(
+            ids(text(
+                "/x/README",
+                &["net.daringfireball.markdown", "public.plain-text"]
+            )),
+            vec!["md-to-pdf", "text-to-pdf", "text-to-rtf"]
+        );
     }
 
     #[test]
