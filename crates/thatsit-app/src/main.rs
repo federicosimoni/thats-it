@@ -21,6 +21,8 @@ mod prefs_window;
 #[cfg(target_os = "macos")]
 mod ring_view;
 #[cfg(target_os = "macos")]
+mod service;
+#[cfg(target_os = "macos")]
 mod status;
 #[cfg(target_os = "macos")]
 mod window;
@@ -48,8 +50,12 @@ fn main() {
         app.run();
         return;
     }
+    if let Some(code) = cli::run_other(&catalog, &args) {
+        std::process::exit(code);
+    }
 
     notify::init();
+    let services = service::ServiceProvider::install(mtm, Rc::clone(&catalog));
     let widget = window::Widget::new(mtm, catalog);
     ring_view::register(widget.view());
     if !prefs::widget_hidden() {
@@ -71,7 +77,7 @@ fn main() {
     }
 
     app.run();
-    drop(widget);
+    drop((widget, services));
 }
 
 #[cfg(not(target_os = "macos"))]

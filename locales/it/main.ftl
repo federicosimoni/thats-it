@@ -68,3 +68,6 @@ prefs-ffmpeg-hint = Installa ffmpeg per sbloccare le conversioni video e MP3: br
 prefs-invalid-title = File di conversione non validi
 prefs-invalid-none = Tutti i file di conversione sono validi.
 prefs-rescan = Ricontrolla
+
+## Finder service (right-click → Services)
+service-no-match = Nessuna conversione per questi file

@@ -69,3 +69,6 @@ prefs-ffmpeg-hint = Install ffmpeg to unlock video and MP3 conversions: brew ins
 prefs-invalid-title = Invalid conversion files
 prefs-invalid-none = All conversion files are valid.
 prefs-rescan = Rescan
+
+## Finder service (right-click → Services)
+service-no-match = No conversion for these files
