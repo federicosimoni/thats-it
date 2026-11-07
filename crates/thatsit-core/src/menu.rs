@@ -14,6 +14,9 @@ pub const HOVER_DELAY: Duration = Duration::from_millis(150);
 /// How long the cursor must rest on a category (or on the centre of a category ring) to
 /// open it (or go back).
 pub const DWELL: Duration = Duration::from_millis(350);
+/// How long the cursor must rest on a conversion with variants to open its variants ring.
+/// Longer than [`DWELL`] so that pausing before a drop rarely opens it by accident.
+pub const VARIANT_DWELL: Duration = Duration::from_millis(600);
 
 /// One sector of a ring.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,6 +25,8 @@ pub enum Entry {
     Conversion(usize),
     /// A category that opens a second ring with this many conversions.
     Category { category: Category, count: usize },
+    /// A variant of a conversion (index into the matches, index into its variants).
+    Variant { conversion: usize, variant: usize },
 }
 
 /// Which ring is shown.
@@ -29,6 +34,14 @@ pub enum Entry {
 pub enum Level {
     Root,
     Category(Category),
+    /// The variants of a conversion. `parent` is the category ring it was opened from
+    /// (`None` for the root); the default variant is drawn in sector `anchor`, in the
+    /// direction of the conversion's sector, so resting and dropping keeps the default.
+    Variants {
+        conversion: usize,
+        parent: Option<Category>,
+        anchor: usize,
+    },
 }
 
 /// The rings available for a set of matching conversions.
@@ -37,11 +50,19 @@ pub struct Menu {
     /// Non-empty categories in display order, each with its match indices.
     groups: Vec<(Category, Vec<usize>)>,
     total: usize,
+    /// Per match: (number of variants, index of the default variant).
+    variants: Vec<(usize, usize)>,
 }
 
 impl Menu {
     /// Builds the menu from the categories of the matching conversions (in match order).
     pub fn new(categories: &[Category]) -> Self {
+        Self::with_variants(categories, &[])
+    }
+
+    /// Like [`Menu::new`], with `(variant count, default variant)` for each match
+    /// (missing entries mean no variants).
+    pub fn with_variants(categories: &[Category], variants: &[(usize, usize)]) -> Self {
         let mut groups: Vec<(Category, Vec<usize>)> =
             Category::ALL.iter().map(|c| (*c, Vec::new())).collect();
         for (i, c) in categories.iter().enumerate() {
@@ -53,6 +74,7 @@ impl Menu {
         Self {
             groups,
             total: categories.len(),
+            variants: variants.to_vec(),
         }
     }
 
@@ -86,6 +108,17 @@ impl Menu {
                 let all: Vec<usize> = self.groups.iter().flat_map(|(_, v)| v.clone()).collect();
                 conversions(&all)
             }
+            Level::Variants {
+                conversion, anchor, ..
+            } => {
+                let (n, default) = self.variant_info(conversion);
+                (0..n)
+                    .map(|j| Entry::Variant {
+                        conversion,
+                        variant: (default + j + n - anchor % n.max(1)) % n,
+                    })
+                    .collect()
+            }
             Level::Category(c) => self
                 .groups
                 .iter()
@@ -93,6 +126,11 @@ impl Menu {
                 .map(|(_, v)| conversions(v))
                 .unwrap_or_default(),
         }
+    }
+
+    /// `(variant count, default variant)` of match `m`.
+    pub fn variant_info(&self, m: usize) -> (usize, usize) {
+        self.variants.get(m).copied().unwrap_or((0, 0))
     }
 
     /// Number of matches that cannot be shown because a ring is full.
@@ -130,8 +168,12 @@ pub struct ViewState {
 /// Result of dropping.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DropOutcome {
-    /// Run this conversion (index into the matches).
-    Run(usize),
+    /// Run this conversion (index into the matches) with this variant (`None`: the
+    /// default variant, or no variants).
+    Run {
+        conversion: usize,
+        variant: Option<usize>,
+    },
     /// Nothing to do (dead zone, outside, a category, or the ring was not open yet).
     Cancel,
 }
@@ -185,16 +227,43 @@ impl Interaction {
             if hover != self.hover {
                 self.set_hover(hover, now);
             }
-            let dwelled = now.saturating_sub(self.hover_since) >= DWELL;
+            let rested = now.saturating_sub(self.hover_since);
+            let dwelled = rested >= DWELL;
             match (self.level, self.hover) {
-                (Level::Root, Hover::Sector(i)) if dwelled => {
-                    if let Some(Entry::Category { category, .. }) = self.entries().get(i).copied() {
-                        self.level = Level::Category(category);
-                        self.set_hover(Hover::None, now);
+                (Level::Root | Level::Category(_), Hover::Sector(i)) => {
+                    let entries = self.entries();
+                    match entries.get(i).copied() {
+                        Some(Entry::Category { category, .. }) if dwelled => {
+                            self.level = Level::Category(category);
+                            self.set_hover(Hover::None, now);
+                        }
+                        Some(Entry::Conversion(m)) if rested >= VARIANT_DWELL => {
+                            let (n, _) = self.menu.variant_info(m);
+                            if n > 0 {
+                                // Sector i of P is at i·360/P degrees; the nearest of n.
+                                let p = entries.len();
+                                let anchor = ((i * n * 2 + p) / (2 * p)) % n;
+                                let parent = match self.level {
+                                    Level::Category(c) => Some(c),
+                                    _ => None,
+                                };
+                                self.level = Level::Variants {
+                                    conversion: m,
+                                    parent,
+                                    anchor,
+                                };
+                                self.set_hover(Hover::None, now);
+                            }
+                        }
+                        _ => {}
                     }
                 }
                 (Level::Category(_), Hover::Centre) if dwelled && self.menu.is_grouped() => {
                     self.level = Level::Root;
+                    self.set_hover(Hover::None, now);
+                }
+                (Level::Variants { parent, .. }, Hover::Centre) if dwelled => {
+                    self.level = parent.map_or(Level::Root, Level::Category);
                     self.set_hover(Hover::None, now);
                 }
                 _ => {}
@@ -228,7 +297,17 @@ impl Interaction {
         }
         match hit {
             Hit::Sector(i) => match self.entries().get(i) {
-                Some(Entry::Conversion(m)) => DropOutcome::Run(*m),
+                Some(Entry::Conversion(m)) => DropOutcome::Run {
+                    conversion: *m,
+                    variant: None,
+                },
+                Some(Entry::Variant {
+                    conversion,
+                    variant,
+                }) => DropOutcome::Run {
+                    conversion: *conversion,
+                    variant: Some(*variant),
+                },
                 _ => DropOutcome::Cancel,
             },
             Hit::DeadZone | Hit::Outside => DropOutcome::Cancel,
@@ -307,7 +386,13 @@ mod tests {
         let v = it.update(Hit::Sector(1), ms(1150));
         assert!(v.expanded);
         assert_eq!(v.highlight, Some(1));
-        assert_eq!(it.drop_at(Hit::Sector(1)), DropOutcome::Run(1));
+        assert_eq!(
+            it.drop_at(Hit::Sector(1)),
+            DropOutcome::Run {
+                conversion: 1,
+                variant: None
+            }
+        );
     }
 
     #[test]
@@ -345,7 +430,13 @@ mod tests {
 
         // Still on sector 1 (now a conversion): highlighted, and dropping runs it.
         assert_eq!(it.update(Hit::Sector(1), ms(600)).highlight, Some(1));
-        assert_eq!(it.drop_at(Hit::Sector(1)), DropOutcome::Run(8));
+        assert_eq!(
+            it.drop_at(Hit::Sector(1)),
+            DropOutcome::Run {
+                conversion: 8,
+                variant: None
+            }
+        );
 
         // Rest on the centre to go back.
         it.update(Hit::DeadZone, ms(700));
@@ -366,6 +457,108 @@ mod tests {
         assert_eq!(it.update(Hit::Sector(1), ms(700)).level, Level::Root);
         assert_eq!(
             it.update(Hit::Sector(1), ms(760)).level,
+            Level::Category(Documents)
+        );
+    }
+
+    #[test]
+    fn variants_ring_opens_on_a_longer_rest_and_keeps_the_default_under_the_cursor() {
+        // Four image conversions; the one at index 2 has 3 variants, default = 1.
+        let m = Menu::with_variants(&[Images, Images, Images, Images], &[(0, 0), (0, 0), (3, 1)]);
+        let mut it = Interaction::new(m, ms(0));
+        it.update(Hit::Outside, HOVER_DELAY);
+        // Sector 2 of 4 points down (180°).
+        assert_eq!(it.update(Hit::Sector(2), ms(200)).level, Level::Root);
+        // After DWELL (categories) nothing happens: conversions need VARIANT_DWELL.
+        assert_eq!(it.update(Hit::Sector(2), ms(600)).level, Level::Root);
+        // A quick drop runs the default variant.
+        assert_eq!(
+            it.drop_at(Hit::Sector(2)),
+            DropOutcome::Run {
+                conversion: 2,
+                variant: None
+            }
+        );
+        let v = it.update(Hit::Sector(2), ms(820));
+        let Level::Variants {
+            conversion,
+            parent,
+            anchor,
+        } = v.level
+        else {
+            panic!("variants ring expected, got {:?}", v.level);
+        };
+        assert_eq!((conversion, parent), (2, None));
+        // 180° with 3 sectors (0°, 120°, 240°) → nearest is sector 2 (240°) or 1 (120°);
+        // round(2*3/4) = 2.
+        assert_eq!(anchor, 2);
+        let entries = it.entries();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(
+            entries[anchor],
+            Entry::Variant {
+                conversion: 2,
+                variant: 1
+            }
+        );
+        // Every variant appears exactly once.
+        let mut seen: Vec<usize> = entries
+            .iter()
+            .map(|e| match e {
+                Entry::Variant { variant, .. } => *variant,
+                _ => panic!("variant entries only"),
+            })
+            .collect();
+        seen.sort();
+        assert_eq!(seen, vec![0, 1, 2]);
+        let Entry::Variant { variant: first, .. } = entries[0] else {
+            unreachable!()
+        };
+        assert_eq!(
+            it.drop_at(Hit::Sector(0)),
+            DropOutcome::Run {
+                conversion: 2,
+                variant: Some(first)
+            }
+        );
+        // Resting on the centre goes back to the ring it came from.
+        it.update(Hit::DeadZone, ms(900));
+        assert_eq!(it.update(Hit::DeadZone, ms(1300)).level, Level::Root);
+        // Conversions without variants never open a ring.
+        it.update(Hit::Sector(0), ms(1400));
+        assert_eq!(it.update(Hit::Sector(0), ms(2500)).level, Level::Root);
+    }
+
+    #[test]
+    fn variants_ring_from_a_category_goes_back_to_the_category() {
+        let mut categories = vec![Images; 9];
+        categories.push(Documents);
+        let mut variants = vec![(0, 0); 10];
+        variants[9] = (2, 0);
+        let m = Menu::with_variants(&categories, &variants);
+        assert!(m.is_grouped());
+        let mut it = Interaction::new(m, ms(0));
+        it.update(Hit::Outside, HOVER_DELAY);
+        // Root: [Images, Documents]; rest on Documents.
+        it.update(Hit::Sector(1), ms(200));
+        assert_eq!(
+            it.update(Hit::Sector(1), ms(600)).level,
+            Level::Category(Documents)
+        );
+        // The Documents ring has one conversion (index 9) with 2 variants.
+        it.update(Hit::Sector(0), ms(700));
+        let v = it.update(Hit::Sector(0), ms(1400));
+        assert!(matches!(
+            v.level,
+            Level::Variants {
+                conversion: 9,
+                parent: Some(Documents),
+                ..
+            }
+        ));
+        it.update(Hit::DeadZone, ms(1500));
+        assert_eq!(
+            it.update(Hit::DeadZone, ms(1900)).level,
             Level::Category(Documents)
         );
     }
