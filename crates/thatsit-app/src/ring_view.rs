@@ -146,6 +146,8 @@ pub struct RingIvars {
     exit_gen: Cell<u64>,
     /// An Option-drag that moves the widget, if one is in progress.
     moving: Cell<Option<Move>>,
+    /// Where a summoned widget sits (summon mode); `None` for the desktop widget.
+    summon_home: Cell<Option<NSPoint>>,
 }
 
 /// An Option-drag of the collapsed widget.
@@ -188,7 +190,8 @@ define_class!(
         fn mouse_down(&self, event: &NSEvent) {
             let iv = self.ivars();
             let option = event.modifierFlags().contains(NSEventModifierFlags::Option);
-            let Some(window) = self.window().filter(|_| option && !iv.armed.get()) else {
+            let movable = option && !iv.armed.get() && iv.summon_home.get().is_none();
+            let Some(window) = self.window().filter(|_| movable) else {
                 return;
             };
             iv.moving.set(Some(Move {
@@ -327,6 +330,7 @@ impl RingView {
             unsupported: Cell::new(false),
             exit_gen: Cell::new(0),
             moving: Cell::new(None),
+            summon_home: Cell::new(None),
         });
         // SAFETY: `initWithFrame:` is NSView's designated initializer and takes an NSRect.
         let view: Retained<Self> = unsafe { msg_send![super(this), initWithFrame: frame] };
@@ -720,10 +724,16 @@ impl RingView {
                     m.label,
                     s.files.len()
                 ));
-                self.run_conversion(
-                    &m.id,
-                    s.files.iter().map(|f| PathBuf::from(&f.path)).collect(),
-                )
+                let files = s.files.iter().map(|f| PathBuf::from(&f.path)).collect();
+                if self.ivars().summon_home.get().is_some() {
+                    // A summoned widget hands the batch to the desktop widget, so there is
+                    // one queue, one progress ring and Cancel works from the menu bar.
+                    let mut ran = false;
+                    with_view(|main| ran = main.run_conversion(&m.id, files));
+                    ran
+                } else {
+                    self.run_conversion(&m.id, files)
+                }
             }
             DropOutcome::Cancel => {
                 log::info("DROP → cancelled");
@@ -972,6 +982,9 @@ impl RingView {
 
     /// Centre of the collapsed widget at its anchor.
     fn home_centre(&self) -> Option<NSPoint> {
+        if let Some(home) = self.ivars().summon_home.get() {
+            return Some(home);
+        }
         let (screen, _, anchor) = self.home()?;
         let (x, y) = anchor.point(to_rect(screen.visibleFrame()), SNAP_INSET);
         Some(NSPoint::new(x, y))
@@ -1039,6 +1052,22 @@ impl RingView {
             files,
         });
         true
+    }
+
+    /// Makes this view a summoned widget sitting at `centre` (screen coordinates).
+    pub fn summon_at(&self, centre: NSPoint) {
+        self.ivars().summon_home.set(Some(centre));
+        if let Some(window) = self.window() {
+            window.setFrame_display(square_around(centre, collapsed_size()), true);
+        }
+        self.layout_subviews();
+        self.refresh_colors();
+    }
+
+    /// A drag is being handled (the ring is open or about to open).
+    pub fn in_session(&self) -> bool {
+        let iv = self.ivars();
+        iv.armed.get() || iv.session.borrow().is_some()
     }
 
     /// Whether a conversion is running.

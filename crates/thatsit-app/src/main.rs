@@ -25,6 +25,8 @@ mod service;
 #[cfg(target_os = "macos")]
 mod status;
 #[cfg(target_os = "macos")]
+mod summon;
+#[cfg(target_os = "macos")]
 mod window;
 
 #[cfg(target_os = "macos")]
@@ -56,7 +58,8 @@ fn main() {
 
     notify::init();
     let services = service::ServiceProvider::install(mtm, Rc::clone(&catalog));
-    let widget = window::Widget::new(mtm, catalog);
+    let widget = window::Widget::new(mtm, Rc::clone(&catalog));
+    let summon = summon::Summon::install(mtm, catalog, widget.window());
     ring_view::register(widget.view());
     if !prefs::widget_hidden() {
         widget.show();
@@ -77,7 +80,7 @@ fn main() {
     }
 
     app.run();
-    drop((widget, services));
+    drop((widget, services, summon));
 }
 
 #[cfg(not(target_os = "macos"))]

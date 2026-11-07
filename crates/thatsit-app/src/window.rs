@@ -10,8 +10,8 @@ use std::rc::Rc;
 use objc2::rc::Retained;
 use objc2::{MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSBackingStoreType, NSColor, NSWindow, NSWindowCollectionBehavior, NSWindowLevel,
-    NSWindowStyleMask,
+    NSBackingStoreType, NSColor, NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior,
+    NSWindowLevel, NSWindowStyleMask,
 };
 use objc2_core_graphics::{CGWindowLevelForKey, CGWindowLevelKey};
 use objc2_foundation::{NSPoint, NSRect, NSSize};
@@ -26,7 +26,18 @@ pub struct Widget {
 }
 
 impl Widget {
+    /// The desktop widget, at its anchor.
     pub fn new(mtm: MainThreadMarker, catalog: Rc<Catalog>) -> Self {
+        Self::build(mtm, catalog, false)
+    }
+
+    /// The summoned widget (summon mode): above every window, full-screen apps included,
+    /// placed by the caller. Starts hidden.
+    pub fn new_summon(mtm: MainThreadMarker, catalog: Rc<Catalog>) -> Self {
+        Self::build(mtm, catalog, true)
+    }
+
+    fn build(mtm: MainThreadMarker, catalog: Rc<Catalog>, summon: bool) -> Self {
         let frame = NSRect::new(
             NSPoint::ZERO,
             NSSize::new(collapsed_size(), collapsed_size()),
@@ -49,19 +60,26 @@ impl Widget {
         window.setOpaque(false);
         window.setBackgroundColor(Some(&NSColor::clearColor()));
         window.setHasShadow(false);
-        window.setLevel(desktop_icon_level() + 1);
-        window.setCollectionBehavior(
-            NSWindowCollectionBehavior::CanJoinAllSpaces
-                | NSWindowCollectionBehavior::Stationary
-                | NSWindowCollectionBehavior::IgnoresCycle,
-        );
+        let mut behavior = NSWindowCollectionBehavior::CanJoinAllSpaces
+            | NSWindowCollectionBehavior::Stationary
+            | NSWindowCollectionBehavior::IgnoresCycle;
+        if summon {
+            // Above normal windows, and allowed into the Space of a full-screen app.
+            window.setLevel(NSStatusWindowLevel);
+            behavior |= NSWindowCollectionBehavior::FullScreenAuxiliary;
+        } else {
+            window.setLevel(desktop_icon_level() + 1);
+        }
+        window.setCollectionBehavior(behavior);
         // The widget is moved by Option-dragging it between snap anchors (see RingView);
         // a plain drag must not move it.
         window.setMovableByWindowBackground(false);
 
         let view = RingView::new(mtm, catalog);
         window.setContentView(Some(&view));
-        view.place_initially();
+        if !summon {
+            view.place_initially();
+        }
 
         Self { window, view }
     }

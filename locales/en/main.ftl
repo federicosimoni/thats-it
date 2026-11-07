@@ -55,6 +55,7 @@ prefs-size-large = Large
 prefs-login = Open at login
 prefs-login-unavailable = Available when running the installed app.
 prefs-accent = Use system accent color
+prefs-summon = Show the widget near the pointer when the desktop is covered
 prefs-fallback = If the original folder is not writable, save to:
 prefs-choose = Choose…
 

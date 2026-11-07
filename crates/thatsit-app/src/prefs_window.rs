@@ -115,6 +115,12 @@ define_class!(
             self.ivars().view.apply_preferences();
         }
 
+        #[unsafe(method(summonToggled:))]
+        fn summon_toggled(&self, sender: Option<&NSButton>) {
+            let Some(button) = sender else { return };
+            prefs::set_summon_enabled(button.state() == NSControlStateValueOn);
+        }
+
         #[unsafe(method(chooseFallback:))]
         fn choose_fallback(&self, _sender: Option<&AnyObject>) {
             let panel = NSOpenPanel::openPanel(self.mtm());
@@ -324,6 +330,20 @@ impl PrefsController {
             NSControlStateValueOff
         });
         root.addSubview(&accent);
+        y += 28.0;
+
+        // Summon mode.
+        let summon = checkbox(&i18n.tr("prefs-summon"), self, sel!(summonToggled:), mtm);
+        summon.setFrame(NSRect::new(
+            NSPoint::new(MARGIN, y),
+            NSSize::new(WIDTH - 2.0 * MARGIN - 40.0, 22.0),
+        ));
+        summon.setState(if prefs::summon_enabled() {
+            NSControlStateValueOn
+        } else {
+            NSControlStateValueOff
+        });
+        root.addSubview(&summon);
         y += 48.0;
 
         // Fallback folder.
