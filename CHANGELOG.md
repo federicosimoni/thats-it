@@ -6,10 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-11-07
+
 ### Fixed
 
 - Notifications are shown even while That's it is the active app, and permission or
   delivery errors are written to the log.
+- The WebP label no longer gets cut off in the ring: it is now "Convert to WebP lossless".
 
 ## [0.1.1] — 2026-11-07
 
@@ -53,6 +56,7 @@ First public release.
 - English and Italian localization (Project Fluent).
 - Universal (Apple silicon + Intel) app bundle and `.dmg`, Homebrew cask.
 
-[Unreleased]: https://github.com/federicosimoni/thats-it/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/federicosimoni/thats-it/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/federicosimoni/thats-it/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/federicosimoni/thats-it/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/federicosimoni/thats-it/releases/tag/v0.1.0
