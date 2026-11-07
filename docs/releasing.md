@@ -25,7 +25,9 @@ certificate and an app-specific password as GitHub Actions secrets.
 ## Cutting a release
 
 1. Update `version` in the root `Cargo.toml` (`[workspace.package]`) and `CHANGELOG.md`.
-2. Commit, then tag and push: `git tag v0.1.0 && git push origin v0.1.0`.
+2. Commit and push to `main`, then either push a tag (`git tag v0.1.0 && git push origin
+   v0.1.0`) or run **Actions → Release → Run workflow** on `main`, which creates the tag
+   `v<version>` itself.
 3. The **Release** workflow tests, builds the universal `.dmg`, creates the GitHub Release
    with install notes and a SHA-256, and updates the Homebrew tap.
 

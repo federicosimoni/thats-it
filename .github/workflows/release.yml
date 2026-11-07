@@ -2,10 +2,13 @@ name: Release
 
 # Pushing a tag like v0.1.0 builds the universal app, creates a GitHub Release with the
 # .dmg and, if the HOMEBREW_TAP_TOKEN secret exists, updates federicosimoni/homebrew-tap.
+# It can also be started by hand (Actions → Release → Run workflow) on main: it then
+# creates the tag v<version from Cargo.toml> on the commit it runs on.
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -22,10 +25,22 @@ jobs:
         with:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
       - name: Check the tag matches the crate version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          test "v$VERSION" = "$GITHUB_REF_NAME" || { echo "::error::tag $GITHUB_REF_NAME but Cargo.toml says $VERSION"; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            TAG=$GITHUB_REF_NAME
+            test "v$VERSION" = "$TAG" || { echo "::error::tag $TAG but Cargo.toml says $VERSION"; exit 1; }
+          else
+            TAG=v$VERSION
+            test "$GITHUB_REF_NAME" = main || { echo "::error::run the release from main"; exit 1; }
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "::error::release $TAG already exists; bump the version first"; exit 1
+            fi
+          fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
       - run: cargo test --workspace
       - name: Build the universal app and dmg
         run: cargo xtask dmg
@@ -53,7 +68,7 @@ jobs:
 
           SHA-256: \`$SHA256\`
           NOTES
-          gh release create "$GITHUB_REF_NAME" \
+          gh release create "$TAG" --target "$GITHUB_SHA" \
             "target/bundle/Thats-it-$VERSION.dmg" \
             "target/bundle/Thats-it-$VERSION.dmg.sha256" \
             --title "That's it $VERSION" --notes-file notes.md
