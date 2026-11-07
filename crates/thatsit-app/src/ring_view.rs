@@ -589,7 +589,7 @@ impl RingView {
             icon.setContentTintColor(Some(color));
             text.setTextColor(Some(color));
             text.setFont(Some(&NSFont::systemFontOfSize_weight(
-                12.0,
+                11.0,
                 if on { semibold } else { medium },
             )));
         }
