@@ -5,10 +5,20 @@
 //! cargo xtask bundle [--native]    build the release app → target/bundle/That's it.app
 //!                                  (universal arm64 + x86_64 unless --native)
 //! cargo xtask dmg [--native]       bundle, then → target/bundle/Thats-it-<version>.dmg
+//!                                  (signed and, if configured, notarized + stapled)
 //! ```
 //!
-//! The app is signed **ad hoc** (`codesign -s -`): free, required for arm64, but not a
-//! Developer ID signature, so Gatekeeper asks for confirmation on first launch.
+//! **Signing.** By default the app is signed **ad hoc** (`codesign -s -`): free, required
+//! for arm64, but not a Developer ID signature, so Gatekeeper asks for confirmation on first
+//! launch. With a Developer ID certificate in the keychain, set
+//!
+//! - `THATSIT_SIGN_IDENTITY` — e.g. `Developer ID Application: Name (TEAMID)`: the app and
+//!   the dmg are signed with it, with the hardened runtime and a secure timestamp;
+//! - and, to notarize the dmg with `notarytool` and staple the ticket, either
+//!   `THATSIT_NOTARY_PROFILE` (a keychain profile from `xcrun notarytool store-credentials`)
+//!   or `THATSIT_NOTARY_KEY` + `THATSIT_NOTARY_KEY_ID` + `THATSIT_NOTARY_ISSUER`
+//!   (an App Store Connect API key: path to the `.p8`, its id and the issuer id).
+//!
 //! `icon` works on any OS up to the PNGs; `iconutil`, `lipo`, `codesign` and `hdiutil`
 //! need macOS.
 
@@ -208,14 +218,92 @@ fn bundle(native: bool) -> Result<PathBuf> {
         }
     }
 
-    // 4. Ad-hoc signature (no Developer ID yet), then verify.
-    run(Command::new("codesign")
-        .args(["--force", "--deep", "--sign", "-", "--timestamp=none"])
-        .arg(&app))?;
+    // 4. Sign (Developer ID if configured, else ad hoc), then verify.
+    match sign_identity() {
+        Some(identity) => run(Command::new("codesign")
+            .args(["--force", "--options", "runtime", "--timestamp", "--sign"])
+            .arg(&identity)
+            .arg(&app))?,
+        None => run(Command::new("codesign")
+            .args(["--force", "--deep", "--sign", "-", "--timestamp=none"])
+            .arg(&app))?,
+    }
     run(Command::new("codesign")
         .args(["--verify", "--deep", "--strict", "--verbose=2"])
         .arg(&app))?;
     Ok(app)
+}
+
+// ---------------------------------------------------------------------------------------
+// Signing and notarization
+
+fn env_var(name: &str) -> Option<String> {
+    std::env::var(name).ok().filter(|v| !v.trim().is_empty())
+}
+
+/// The Developer ID identity from `THATSIT_SIGN_IDENTITY`, if set.
+fn sign_identity() -> Option<String> {
+    env_var("THATSIT_SIGN_IDENTITY")
+}
+
+/// `notarytool` credentials from the environment, if configured.
+fn notary_credentials() -> Result<Option<Vec<String>>> {
+    if let Some(profile) = env_var("THATSIT_NOTARY_PROFILE") {
+        return Ok(Some(vec!["--keychain-profile".into(), profile]));
+    }
+    let key = [
+        "THATSIT_NOTARY_KEY",
+        "THATSIT_NOTARY_KEY_ID",
+        "THATSIT_NOTARY_ISSUER",
+    ]
+    .map(env_var);
+    match key {
+        [Some(key), Some(id), Some(issuer)] => Ok(Some(vec![
+            "--key".into(),
+            key,
+            "--key-id".into(),
+            id,
+            "--issuer".into(),
+            issuer,
+        ])),
+        [None, None, None] => Ok(None),
+        _ => Err("set all of THATSIT_NOTARY_KEY, THATSIT_NOTARY_KEY_ID and \
+                  THATSIT_NOTARY_ISSUER, or none"
+            .into()),
+    }
+}
+
+/// Signs the dmg with the Developer ID and, if credentials are configured, notarizes and
+/// staples it. Does nothing for ad-hoc builds.
+fn sign_and_notarize_dmg(dmg: &Path) -> Result {
+    let Some(identity) = sign_identity() else {
+        return Ok(());
+    };
+    run(Command::new("codesign")
+        .args(["--force", "--timestamp", "--sign"])
+        .arg(&identity)
+        .arg(dmg))?;
+    let Some(credentials) = notary_credentials()? else {
+        println!("notarization not configured: the dmg is signed but not notarized");
+        return Ok(());
+    };
+    run(Command::new("xcrun")
+        .args(["notarytool", "submit"])
+        .arg(dmg)
+        .args(&credentials)
+        .arg("--wait"))?;
+    run(Command::new("xcrun").args(["stapler", "staple"]).arg(dmg))?;
+    run(Command::new("xcrun").args(["stapler", "validate"]).arg(dmg))?;
+    run(Command::new("spctl")
+        .args([
+            "--assess",
+            "--type",
+            "open",
+            "--context",
+            "context:primary-signature",
+            "-vv",
+        ])
+        .arg(dmg))
 }
 
 // ---------------------------------------------------------------------------------------
@@ -249,5 +337,6 @@ fn dmg(app: &Path) -> Result<PathBuf> {
         .arg(&staging)
         .arg(&dmg))?;
     let _ = fs::remove_dir_all(&staging);
+    sign_and_notarize_dmg(&dmg)?;
     Ok(dmg)
 }
