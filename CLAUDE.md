@@ -313,9 +313,19 @@ xtask bundle, universal binary, signing/notarization workflow, dmg, Homebrew tap
 **Phase 6 — Open-source launch**
 README with GIF, all community files, issue templates/labels, Weblate setup, first `v0.1.0` release.
 
-**Later (v2 ideas, do not build now):** "summon mode" (widget appears near the cursor when any file
-drag starts, by watching the drag pasteboard's `changeCount` — useful when a full-screen app covers
-the desktop), conversion options (quality sliders), Shortcuts integration, Windows/Linux ports.
+**v2 — DECIDED with the owner (in this order, one phase each, release + owner test after each):**
+1. **Finder service + Shortcuts, without Swift.** NSServices "Convert with That's it…" (menu of
+   compatible conversions at the pointer) and a documented command line (`--convert`, `--list`) for
+   the Shortcuts action "Run Shell Script" (`docs/shortcuts.md`). Real App Intents need Swift + full
+   Xcode: an architecture change, to be evaluated separately only if needed.
+2. **Summon mode.** Watch the drag pasteboard's `changeCount` while a file drag is in progress; show
+   the widget **only when the desktop is covered** (full-screen app / no desktop visible), **near the
+   cursor, offset to the side**, after a short delay (≈ 0.5 s), in a window above full-screen apps.
+3. **Conversion options as variants in the ring.** Resting on a conversion opens a second ring of
+   variants (e.g. JPG quality High/Medium/Low) declared in the TOML; dropping immediately uses the
+   default. Candidates: JPG quality, video compression, resize steps, PDF→PNG DPI.
+
+**Later:** Windows/Linux ports.
 
 ---
 
