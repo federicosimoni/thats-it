@@ -130,6 +130,28 @@ pub struct Conversion {
 }
 
 impl Conversion {
+    /// Human-readable names of the input formats, from `accepts_ext`, with aliases merged
+    /// (`jpg`/`jpeg` → `JPG`, `md`/`markdown` → `Markdown`…). Empty when the conversion
+    /// only lists UTTypes. Used to tell apart conversions with the same label.
+    pub fn source_formats(&self) -> Vec<String> {
+        let mut names: Vec<String> = Vec::new();
+        for ext in &self.accepts_ext {
+            let name = match ext.as_str() {
+                "jpg" | "jpeg" => "JPG".to_owned(),
+                "tif" | "tiff" => "TIFF".to_owned(),
+                "htm" | "html" => "HTML".to_owned(),
+                "heic" | "heif" => "HEIC".to_owned(),
+                "md" | "markdown" => "Markdown".to_owned(),
+                "webp" => "WebP".to_owned(),
+                other => other.to_uppercase(),
+            };
+            if !names.contains(&name) {
+                names.push(name);
+            }
+        }
+        names
+    }
+
     /// Parses and validates a conversion from TOML text.
     pub fn from_toml(
         text: &str,
@@ -582,6 +604,22 @@ mod tests {
         assert_eq!(c.steps.len(), 1);
         assert_eq!(c.steps[0].timeout(), DEFAULT_TIMEOUT);
         assert_eq!(c.engines().count(), 0);
+    }
+
+    #[test]
+    fn source_formats_merge_aliases() {
+        let mut c = parse(HEIC).unwrap();
+        c.accepts_ext = [
+            "jpeg", "jpg", "tif", "tiff", "webp", "md", "markdown", "bmp", "heif",
+        ]
+        .map(String::from)
+        .to_vec();
+        assert_eq!(
+            c.source_formats(),
+            vec!["JPG", "TIFF", "WebP", "Markdown", "BMP", "HEIC"]
+        );
+        c.accepts_ext.clear();
+        assert!(c.source_formats().is_empty());
     }
 
     #[test]

@@ -405,10 +405,27 @@ impl PrefsController {
             })));
             doc.addSubview(&header);
             y += 26.0;
-            for c in items {
+            for c in &items {
                 let mut missing = availability.missing_tools(c);
                 missing.extend(availability.missing_engines(c));
                 let mut title = catalog.label(c).to_owned();
+                // Several conversions with the same label ("Convert to PNG" from HEIC, from
+                // SVG…): say which formats each one starts from.
+                let shared = items
+                    .iter()
+                    .any(|o| o.id != c.id && catalog.label(o) == catalog.label(c));
+                let formats = c.source_formats();
+                if shared && !formats.is_empty() {
+                    let shown = if formats.len() > 5 {
+                        format!("{}…", formats[..5].join(", "))
+                    } else {
+                        formats.join(", ")
+                    };
+                    title = format!(
+                        "{title} — {}",
+                        i18n.tr_args("prefs-from", &[("formats", Arg::Str(&shown))])
+                    );
+                }
                 if !missing.is_empty() {
                     let tools = missing.join(", ");
                     title = format!(

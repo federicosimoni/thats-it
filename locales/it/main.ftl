@@ -59,6 +59,7 @@ prefs-choose = Scegli…
 
 prefs-conversions-hint = Le conversioni non selezionate non compaiono mai nell'anello.
 prefs-needs = richiede { $tools }
+prefs-from = da { $formats }
 
 prefs-tools-hint = Strumenti a riga di comando usati dalle conversioni. Le app aperte dal Finder non vedono il PATH della shell, quindi That's it cerca anche in /opt/homebrew/bin e /usr/local/bin.
 prefs-tool-found = { $tool }: { $path }

@@ -60,6 +60,7 @@ prefs-choose = Choose…
 
 prefs-conversions-hint = Unchecked conversions never appear in the ring.
 prefs-needs = needs { $tools }
+prefs-from = from { $formats }
 
 prefs-tools-hint = Command-line tools used by conversions. Apps opened from the Finder don't see your shell PATH, so That's it also looks in /opt/homebrew/bin and /usr/local/bin.
 prefs-tool-found = { $tool }: { $path }
