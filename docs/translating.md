@@ -49,4 +49,34 @@ The app follows the language macOS picks for it, including the per-app setting i
 **System Settings → General → Language & Region → Applications**. It negotiates exact
 match (`it-CH`), then the base language (`it`), then English.
 
-Community translations will be hosted on Weblate (set up at the open-source launch).
+## Weblate
+
+The UI strings can be translated in the browser on
+[Hosted Weblate](https://hosted.weblate.org/projects/thats-it/), with no Git or Rust
+needed. Weblate opens pull requests with the changes; CI checks them like any other.
+
+When Weblate adds a new language, a maintainer completes steps 2 and 3 of
+*Adding a language* above before it ships (registering the locale in the code and in
+`Info.plist`). Conversion labels in `conversions/*.toml` are not on Weblate: translate them
+in a pull request.
+
+### Maintainer setup (one-time)
+
+1. Sign in to [hosted.weblate.org](https://hosted.weblate.org) with GitHub and request
+   [libre hosting](https://hosted.weblate.org/hosting/) for the project *That's it*.
+2. Create the component **UI** with:
+
+   | Setting | Value |
+   |---|---|
+   | Source code repository | `https://github.com/federicosimoni/thats-it.git`, branch `main` |
+   | Repository push URL | empty — Weblate pushes to its own fork and opens pull requests (*GitHub pull request* as version control) |
+   | File format | *Fluent file* |
+   | File mask | `locales/*/main.ftl` |
+   | Monolingual base language file | `locales/en/main.ftl` |
+   | Template for new translations | `locales/en/main.ftl` |
+   | Source language | English |
+   | License | MIT OR Apache-2.0 |
+
+3. Install the Weblate GitHub webhook (Weblate shows the URL under the component's
+   *Repository maintenance*) so it picks up changes from `main` right away.
+4. Add the Weblate translation status badge to the README if you like.
