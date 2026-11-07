@@ -10,7 +10,7 @@ cask "thats-it" do
   desc "Drag & drop file converter for macOS"
   homepage "https://github.com/federicosimoni/thats-it"
 
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "That's it.app"
 
