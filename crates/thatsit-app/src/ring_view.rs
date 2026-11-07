@@ -98,6 +98,9 @@ struct Match {
     label: String,
     icon: Option<String>,
     category: Category,
+    /// `(id, label)` of each variant; empty without variants.
+    variants: Vec<(String, String)>,
+    default_variant: usize,
 }
 
 /// One drag over the widget.
@@ -502,9 +505,21 @@ impl RingView {
                 let (symbol, label) = match entry {
                     Entry::Conversion(m) => {
                         let m = &matches[*m];
+                        // "…" says that resting here opens more options.
+                        let more = if m.variants.is_empty() { "" } else { " …" };
                         (
                             m.icon.clone().unwrap_or_else(|| "doc".into()),
-                            m.label.clone(),
+                            format!("{}{more}", m.label),
+                        )
+                    }
+                    Entry::Variant {
+                        conversion,
+                        variant,
+                    } => {
+                        let m = &matches[*conversion];
+                        (
+                            m.icon.clone().unwrap_or_else(|| "doc".into()),
+                            m.variants[*variant].1.clone(),
                         )
                     }
                     Entry::Category { category, count } => (
@@ -545,7 +560,7 @@ impl RingView {
         });
 
         if let Some(g) = iv.centre_glyph.get() {
-            let back = matches!(level, Level::Category(_));
+            let back = matches!(level, Level::Category(_) | Level::Variants { .. });
             set_symbol(g, if back { "chevron.backward" } else { "xmark" }, 15.0);
         }
     }
@@ -628,6 +643,12 @@ impl RingView {
                 label: iv.catalog.label(c).to_owned(),
                 icon: c.icon.clone(),
                 category: c.category,
+                variants: c
+                    .variants
+                    .iter()
+                    .map(|v| (v.id.clone(), iv.catalog.variant_label(v).to_owned()))
+                    .collect(),
+                default_variant: c.default_variant().unwrap_or(0),
             })
             .collect();
 
@@ -654,7 +675,11 @@ impl RingView {
         ));
 
         let categories: Vec<Category> = matches.iter().map(|m| m.category).collect();
-        let menu = Menu::new(&categories);
+        let variants: Vec<(usize, usize)> = matches
+            .iter()
+            .map(|m| (m.variants.len(), m.default_variant))
+            .collect();
+        let menu = Menu::with_variants(&categories, &variants);
         if menu.hidden_count() > 0 {
             log::info(format!(
                 "{} conversion(s) do not fit in the ring and are not shown",
@@ -716,11 +741,18 @@ impl RingView {
             return false;
         };
         match s.interaction.drop_at(hit) {
-            DropOutcome::Run(i) => {
-                let m = &s.matches[i];
+            DropOutcome::Run {
+                conversion,
+                variant,
+            } => {
+                let m = &s.matches[conversion];
+                let variant = variant
+                    .and_then(|v| m.variants.get(v))
+                    .map(|v| v.0.as_str());
                 log::info(format!(
-                    "DROP → run {} ({}) on {} file(s)",
+                    "DROP → run {}{} ({}) on {} file(s)",
                     m.id,
+                    variant.map(|v| format!(":{v}")).unwrap_or_default(),
                     m.label,
                     s.files.len()
                 ));
@@ -729,10 +761,10 @@ impl RingView {
                     // A summoned widget hands the batch to the desktop widget, so there is
                     // one queue, one progress ring and Cancel works from the menu bar.
                     let mut ran = false;
-                    with_view(|main| ran = main.run_conversion(&m.id, files));
+                    with_view(|main| ran = main.run_conversion(&m.id, variant, files));
                     ran
                 } else {
-                    self.run_conversion(&m.id, files)
+                    self.run_conversion(&m.id, variant, files)
                 }
             }
             DropOutcome::Cancel => {
@@ -1039,15 +1071,15 @@ impl RingView {
         self.refresh_colors();
     }
 
-    /// Runs conversion `id` on `files` (progress ring, result glyph and notification, as
+    /// Runs conversion `id` (variant `variant`, or the default) on `files` (progress ring, result glyph and notification, as
     /// for a drop). Returns false if the id is unknown.
-    pub fn run_conversion(&self, id: &str, files: Vec<PathBuf>) -> bool {
+    pub fn run_conversion(&self, id: &str, variant: Option<&str>, files: Vec<PathBuf>) -> bool {
         let iv = self.ivars();
-        let Some(conversion) = iv.catalog.registry.get(id).cloned() else {
+        let Some((conversion, label)) = iv.catalog.resolve(id, variant) else {
             return false;
         };
         iv.jobs.submit(Batch {
-            label: iv.catalog.label(&conversion).to_owned(),
+            label,
             conversion,
             files,
         });
@@ -1109,13 +1141,22 @@ fn log_view(s: &Session, view: &ViewState) {
     let what = if view.centre {
         match view.level {
             Level::Root => "centre (drop = cancel)".to_owned(),
-            Level::Category(_) => "centre (rest = back, drop = cancel)".to_owned(),
+            Level::Category(_) | Level::Variants { .. } => {
+                "centre (rest = back, drop = cancel)".to_owned()
+            }
         }
     } else if let Some(i) = view.highlight {
         match s.interaction.entries().get(i) {
             Some(Entry::Conversion(m)) => format!("sector {i}: {}", s.matches[*m].id),
             Some(Entry::Category { category, count }) => {
                 format!("sector {i}: category {} ({count})", category.as_str())
+            }
+            Some(Entry::Variant {
+                conversion,
+                variant,
+            }) => {
+                let m = &s.matches[*conversion];
+                format!("sector {i}: {}:{}", m.id, m.variants[*variant].0)
             }
             None => format!("sector {i}"),
         }
@@ -1125,6 +1166,7 @@ fn log_view(s: &Session, view: &ViewState) {
     let level = match view.level {
         Level::Root => "root".to_owned(),
         Level::Category(c) => c.as_str().to_owned(),
+        Level::Variants { conversion, .. } => format!("variants of {}", s.matches[conversion].id),
     };
     log::info(format!("[{level}] {what}"));
 }

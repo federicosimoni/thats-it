@@ -60,7 +60,12 @@ define_class!(
             else {
                 return;
             };
+            // "conversion-id" or "conversion-id:variant-id".
             let id = id.to_string();
+            let (id, variant) = match id.split_once(':') {
+                Some((c, v)) => (c.to_owned(), Some(v.to_owned())),
+                None => (id, None),
+            };
             let files: Vec<PathBuf> = self
                 .ivars()
                 .pending
@@ -68,9 +73,13 @@ define_class!(
                 .into_iter()
                 .map(|f| PathBuf::from(f.path))
                 .collect();
-            log::info(format!("Finder service → run {id} on {} file(s)", files.len()));
+            log::info(format!(
+                "Finder service → run {id}{} on {} file(s)",
+                variant.as_deref().map(|v| format!(":{v}")).unwrap_or_default(),
+                files.len()
+            ));
             ring_view::with_view(|view| {
-                view.run_conversion(&id, files);
+                view.run_conversion(&id, variant.as_deref(), files);
             });
         }
     }
@@ -94,6 +103,25 @@ impl ServiceProvider {
         unsafe { app.setServicesProvider(Some(&this)) };
         objc2_app_kit::NSUpdateDynamicServices();
         this
+    }
+
+    /// A menu item that runs `target` ("id" or "id:variant") on the pending files.
+    fn choice(&self, title: &str, target: &str) -> Retained<NSMenuItem> {
+        // SAFETY: `chooseConversion:` is implemented by `self`, set as the target.
+        let item = unsafe {
+            NSMenuItem::initWithTitle_action_keyEquivalent(
+                NSMenuItem::alloc(self.mtm()),
+                &NSString::from_str(title),
+                Some(sel!(chooseConversion:)),
+                &NSString::from_str(""),
+            )
+        };
+        // SAFETY: `self` lives as long as the app and responds to the action.
+        unsafe { item.setTarget(Some(self)) };
+        let target = NSString::from_str(target);
+        // SAFETY: an NSString is a valid represented object.
+        unsafe { item.setRepresentedObject(Some(&*target as &AnyObject)) };
+        item
     }
 
     fn show_menu(&self, dragged: Vec<DraggedFile>) {
@@ -122,21 +150,30 @@ impl ServiceProvider {
             }
             menu.addItem(&disabled_item(&catalog.category_name(category)));
             for c in in_category {
-                // SAFETY: `chooseConversion:` is implemented by `self`, set as the target.
-                let item = unsafe {
-                    NSMenuItem::initWithTitle_action_keyEquivalent(
-                        NSMenuItem::alloc(mtm),
-                        &NSString::from_str(catalog.label(c)),
-                        Some(sel!(chooseConversion:)),
-                        &NSString::from_str(""),
-                    )
-                };
-                // SAFETY: `self` lives as long as the app and responds to the action.
-                unsafe { item.setTarget(Some(self)) };
-                let id = NSString::from_str(&c.id);
-                // SAFETY: an NSString is a valid represented object.
-                unsafe { item.setRepresentedObject(Some(&*id as &AnyObject)) };
+                if c.variants.is_empty() {
+                    let item = self.choice(catalog.label(c), &c.id);
+                    item.setIndentationLevel(1);
+                    menu.addItem(&item);
+                    continue;
+                }
+                // A submenu with the variants; the default one is marked.
+                let item = NSMenuItem::new(mtm);
+                item.setTitle(&NSString::from_str(catalog.label(c)));
                 item.setIndentationLevel(1);
+                let submenu = NSMenu::initWithTitle(NSMenu::alloc(mtm), &NSString::from_str(&c.id));
+                submenu.setAutoenablesItems(false);
+                for v in &c.variants {
+                    let label = catalog.variant_label(v);
+                    let title = if v.default {
+                        catalog
+                            .i18n
+                            .tr_args("variant-default", &[("label", label.into())])
+                    } else {
+                        label.to_owned()
+                    };
+                    submenu.addItem(&self.choice(&title, &format!("{}:{}", c.id, v.id)));
+                }
+                item.setSubmenu(Some(&submenu));
                 menu.addItem(&item);
             }
         }

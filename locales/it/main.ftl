@@ -72,3 +72,4 @@ prefs-rescan = Ricontrolla
 
 ## Finder service (right-click → Services)
 service-no-match = Nessuna conversione per questi file
+variant-default = { $label } (predefinita)

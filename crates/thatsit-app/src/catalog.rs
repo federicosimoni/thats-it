@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use objc2_app_kit::NSImage;
 use objc2_foundation::{NSBundle, NSLocale, NSString};
-use thatsit_core::conversion::{Availability, Category, Conversion, Origin, Registry};
+use thatsit_core::conversion::{Availability, Category, Conversion, Origin, Registry, Variant};
 use thatsit_core::engines::CORE_ENGINES;
 use thatsit_core::i18n::I18n;
 use thatsit_core::tools::ToolFinder;
@@ -106,6 +106,23 @@ impl Catalog {
 
     pub fn label<'c>(&self, conversion: &'c Conversion) -> &'c str {
         conversion.label_for(&self.languages)
+    }
+
+    pub fn variant_label<'v>(&self, variant: &'v Variant) -> &'v str {
+        variant.label_for(&self.languages)
+    }
+
+    /// Conversion `id` ready to run with `variant` (the default when `None`), and the
+    /// label for progress and notifications ("Convert to JPG — High" for an explicit
+    /// variant). `None` for an unknown id or variant.
+    pub fn resolve(&self, id: &str, variant: Option<&str>) -> Option<(Conversion, String)> {
+        let conversion = self.registry.get(id)?;
+        let resolved = conversion.resolve(variant)?;
+        let mut label = self.label(conversion).to_owned();
+        if let Some(v) = variant.and_then(|v| conversion.variants.iter().find(|x| x.id == v)) {
+            label = format!("{label} — {}", self.variant_label(v));
+        }
+        Some((resolved, label))
     }
 
     pub fn category_name(&self, c: Category) -> String {

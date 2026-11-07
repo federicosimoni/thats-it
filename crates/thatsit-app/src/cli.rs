@@ -1,7 +1,7 @@
 //! Command line, for Shortcuts ("Run Shell Script"), scripts, CI and debugging:
 //!
 //! ```text
-//! thatsit --convert <conversion-id> <file>...   run one batch, print OK/FAILED per file
+//! thatsit --convert <id>[:<variant>] <file>...  run one batch, print OK/FAILED per file
 //! thatsit --list [<file>...]                    conversions available (for these files)
 //! thatsit --help | --version
 //! ```
@@ -18,7 +18,7 @@ use crate::log;
 
 const USAGE: &str = "\
 usage:
-  thatsit --convert <conversion-id> <file>...   convert files, print OK/FAILED per file
+  thatsit --convert <id>[:<variant>] <file>...  convert files, print OK/FAILED per file
   thatsit --list [<file>...]                    list conversions (only those for <file>s)
   thatsit --help | --version
 Without arguments, starts the desktop widget.";
@@ -73,17 +73,31 @@ fn list(catalog: &Catalog, paths: &[String]) {
         println!("# {}", catalog.category_name(category));
         for c in in_category {
             println!("{}\t{}", c.id, catalog.label(c));
+            for v in &c.variants {
+                let default = if v.default { " (default)" } else { "" };
+                println!(
+                    "{}:{}\t{} — {}{default}",
+                    c.id,
+                    v.id,
+                    catalog.label(c),
+                    catalog.variant_label(v)
+                );
+            }
         }
     }
 }
 
 pub fn convert(catalog: &Catalog, args: &[String]) {
-    let Some((id, files)) = args.split_first() else {
-        eprintln!("usage: thatsit --convert <conversion-id> <file>...");
+    let Some((target, files)) = args.split_first() else {
+        eprintln!("usage: thatsit --convert <id>[:<variant>] <file>...");
         std::process::exit(2);
     };
-    let Some(conversion) = catalog.registry.get(id).cloned() else {
-        eprintln!("unknown conversion {id:?}");
+    let (id, variant) = match target.split_once(':') {
+        Some((id, v)) => (id, Some(v)),
+        None => (target.as_str(), None),
+    };
+    let Some((conversion, label)) = catalog.resolve(id, variant) else {
+        eprintln!("unknown conversion or variant {target:?} (see --list)");
         std::process::exit(2);
     };
     if !catalog.availability().can_run(&conversion) {
@@ -96,7 +110,7 @@ pub fn convert(catalog: &Catalog, args: &[String]) {
     }
     let jobs = Jobs::start(Arc::clone(&catalog.tools), on_event);
     jobs.submit(Batch {
-        label: catalog.label(&conversion).to_owned(),
+        label,
         conversion,
         files: files.iter().map(PathBuf::from).collect(),
     });
