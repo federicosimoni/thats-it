@@ -67,7 +67,8 @@ cargo xtask dmg
 
 ## Homebrew tap (one-time setup)
 
-1. Create the public repository `federicosimoni/homebrew-tap`.
+1. Create the public repository `federicosimoni/homebrew-tap` (done; it holds
+   `Casks/thats-it.rb` and a README).
 2. Create a fine-grained token with *Contents: read and write* on that repository only and
    save it as the `HOMEBREW_TAP_TOKEN` secret of `federicosimoni/thats-it`.
 3. From the next release, users install with
