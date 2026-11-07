@@ -130,6 +130,80 @@ pub fn clamp_center(center: (f64, f64), radius: f64, bounds: Rect) -> (f64, f64)
     )
 }
 
+/// One of the five places the widget can be snapped to (Option-drag).
+///
+/// The bottom centre is deliberately missing: that is where the Dock usually is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Anchor {
+    TopLeft,
+    TopCenter,
+    TopRight,
+    BottomRight,
+    BottomLeft,
+}
+
+impl Anchor {
+    /// All anchors, clockwise from the top left (the order an Option-click cycles through).
+    pub const ALL: [Anchor; 5] = [
+        Anchor::TopLeft,
+        Anchor::TopCenter,
+        Anchor::TopRight,
+        Anchor::BottomRight,
+        Anchor::BottomLeft,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Anchor::TopLeft => "top-left",
+            Anchor::TopCenter => "top-center",
+            Anchor::TopRight => "top-right",
+            Anchor::BottomRight => "bottom-right",
+            Anchor::BottomLeft => "bottom-left",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Anchor> {
+        Anchor::ALL.into_iter().find(|a| a.as_str() == s)
+    }
+
+    /// The next anchor clockwise.
+    pub fn next(self) -> Anchor {
+        let i = Anchor::ALL.iter().position(|a| *a == self).unwrap_or(0);
+        Anchor::ALL[(i + 1) % Anchor::ALL.len()]
+    }
+
+    /// Centre of the widget at this anchor: `inset` away from the edges of `bounds`, so a
+    /// circle of radius `inset` around it (the expanded ring plus a gap) stays inside.
+    pub fn point(self, bounds: Rect, inset: f64) -> (f64, f64) {
+        let (left, centre, right) = (
+            bounds.x + inset,
+            bounds.x + bounds.w / 2.0,
+            bounds.x + bounds.w - inset,
+        );
+        let (top, bottom) = (bounds.y + bounds.h - inset, bounds.y + inset);
+        let p = match self {
+            Anchor::TopLeft => (left, top),
+            Anchor::TopCenter => (centre, top),
+            Anchor::TopRight => (right, top),
+            Anchor::BottomRight => (right, bottom),
+            Anchor::BottomLeft => (left, bottom),
+        };
+        clamp_center(p, inset, bounds)
+    }
+
+    /// The anchor closest to `p`.
+    pub fn nearest(p: (f64, f64), bounds: Rect, inset: f64) -> Anchor {
+        let dist = |a: Anchor| {
+            let (x, y) = a.point(bounds, inset);
+            (x - p.0).hypot(y - p.1)
+        };
+        Anchor::ALL
+            .into_iter()
+            .min_by(|a, b| dist(*a).total_cmp(&dist(*b)))
+            .unwrap_or(Anchor::BottomRight)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -263,5 +337,64 @@ mod tests {
             h: 1000.0,
         };
         assert_eq!(clamp_center((0.0, 0.0), 160.0, tiny), (100.0, 160.0));
+    }
+
+    #[test]
+    fn anchors_sit_inside_the_screen() {
+        let screen = Rect {
+            x: 0.0,
+            y: 25.0,
+            w: 1440.0,
+            h: 850.0,
+        };
+        let inset = 176.0;
+        assert_eq!(Anchor::TopLeft.point(screen, inset), (176.0, 699.0));
+        assert_eq!(Anchor::TopCenter.point(screen, inset), (720.0, 699.0));
+        assert_eq!(Anchor::TopRight.point(screen, inset), (1264.0, 699.0));
+        assert_eq!(Anchor::BottomRight.point(screen, inset), (1264.0, 201.0));
+        assert_eq!(Anchor::BottomLeft.point(screen, inset), (176.0, 201.0));
+        // Tiny screen: centred rather than outside.
+        let tiny = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 300.0,
+            h: 300.0,
+        };
+        assert_eq!(Anchor::TopRight.point(tiny, inset), (150.0, 150.0));
+    }
+
+    #[test]
+    fn nearest_anchor_and_cycle() {
+        let screen = Rect {
+            x: -1920.0,
+            y: 0.0,
+            w: 1920.0,
+            h: 1080.0,
+        };
+        let inset = 176.0;
+        assert_eq!(
+            Anchor::nearest((-1900.0, 1000.0), screen, inset),
+            Anchor::TopLeft
+        );
+        assert_eq!(
+            Anchor::nearest((-1000.0, 700.0), screen, inset),
+            Anchor::TopCenter
+        );
+        assert_eq!(
+            Anchor::nearest((-10.0, 10.0), screen, inset),
+            Anchor::BottomRight
+        );
+        // The bottom centre goes to a bottom corner, never to a missing anchor.
+        let a = Anchor::nearest((-960.0, 0.0), screen, inset);
+        assert!(matches!(a, Anchor::BottomLeft | Anchor::BottomRight));
+        let mut a = Anchor::TopLeft;
+        for _ in 0..Anchor::ALL.len() {
+            a = a.next();
+        }
+        assert_eq!(a, Anchor::TopLeft);
+        for a in Anchor::ALL {
+            assert_eq!(Anchor::parse(a.as_str()), Some(a));
+        }
+        assert_eq!(Anchor::parse("bottom-center"), None);
     }
 }
