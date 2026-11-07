@@ -326,8 +326,9 @@ the desktop), conversion options (quality sliders), Shortcuts integration, Windo
 - Pure-Rust WebP encoding is lossless only.
 - `afconvert` does not encode MP3 → ffmpeg needed for MP3.
 - Notifications need a bundled, signed app.
-- **Open — ask the owner when the relevant phase starts:**
-  - Does he have (or will he get) an Apple Developer account for signing/notarization? (Phase 5)
+- **Apple Developer account — DECIDED:** the owner gets it only at the very end, once every phase is
+  closed. Until then releases are ad-hoc signed (Gatekeeper "Open Anyway"); Developer ID signing and
+  notarization are the last step of the project.
 
 **Visual style — DECIDED (Phase 2): direction A "Native glass".**
 - Ring and collapsed icon use real macOS vibrancy (`NSVisualEffectView`, behind-window blending),
