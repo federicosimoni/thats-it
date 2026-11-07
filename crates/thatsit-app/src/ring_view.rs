@@ -615,14 +615,10 @@ impl RingView {
             self.set_unsupported(true);
             return NSDragOperation::None;
         }
-        let infos: Vec<_> = dragged.iter().map(DraggedFile::file_info).collect();
-        let disabled = prefs::disabled_conversions();
         let matches: Vec<Match> = iv
             .catalog
-            .registry
-            .matching(&infos, &iv.catalog.availability())
+            .compatible(&dragged)
             .into_iter()
-            .filter(|c| !disabled.contains(&c.id))
             .map(|c| Match {
                 id: c.id.clone(),
                 label: iv.catalog.label(c).to_owned(),
@@ -724,16 +720,10 @@ impl RingView {
                     m.label,
                     s.files.len()
                 ));
-                let iv = self.ivars();
-                let Some(conversion) = iv.catalog.registry.get(&m.id).cloned() else {
-                    return false;
-                };
-                iv.jobs.submit(Batch {
-                    conversion,
-                    label: m.label.clone(),
-                    files: s.files.iter().map(|f| PathBuf::from(&f.path)).collect(),
-                });
-                true
+                self.run_conversion(
+                    &m.id,
+                    s.files.iter().map(|f| PathBuf::from(&f.path)).collect(),
+                )
             }
             DropOutcome::Cancel => {
                 log::info("DROP → cancelled");
@@ -1036,6 +1026,21 @@ impl RingView {
         self.refresh_colors();
     }
 
+    /// Runs conversion `id` on `files` (progress ring, result glyph and notification, as
+    /// for a drop). Returns false if the id is unknown.
+    pub fn run_conversion(&self, id: &str, files: Vec<PathBuf>) -> bool {
+        let iv = self.ivars();
+        let Some(conversion) = iv.catalog.registry.get(id).cloned() else {
+            return false;
+        };
+        iv.jobs.submit(Batch {
+            label: iv.catalog.label(&conversion).to_owned(),
+            conversion,
+            files,
+        });
+        true
+    }
+
     /// Whether a conversion is running.
     pub fn is_busy(&self) -> bool {
         self.ivars().busy.get().is_some()
@@ -1314,7 +1319,7 @@ pub fn register(view: &RingView) {
     VIEW.with(|v| *v.borrow_mut() = Some(view.retain()));
 }
 
-fn with_view(f: impl FnOnce(&RingView)) {
+pub fn with_view(f: impl FnOnce(&RingView)) {
     VIEW.with(|v| {
         if let Some(view) = v.borrow().as_ref() {
             f(view);

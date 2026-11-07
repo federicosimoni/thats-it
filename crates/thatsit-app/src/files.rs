@@ -59,6 +59,20 @@ pub fn read_files(pasteboard: &NSPasteboard) -> Vec<DraggedFile> {
         .collect()
 }
 
+/// A file on disk given by path (command line), typed like a dragged file; falls back to
+/// its extension when the file cannot be read.
+pub fn file_at(path: &str) -> DraggedFile {
+    let url = NSURL::fileURLWithPath(&NSString::from_str(path));
+    match content_type(&url) {
+        Some(uttype) => DraggedFile {
+            path: path.to_owned(),
+            uti: Some(uttype.identifier().to_string()),
+            types: conformance(&uttype),
+        },
+        None => demo_file(path),
+    }
+}
+
 /// A synthetic file for the visual self-test (`THATSIT_DEMO`), typed by extension.
 pub fn demo_file(path: &str) -> DraggedFile {
     let ext = Path::new(path)

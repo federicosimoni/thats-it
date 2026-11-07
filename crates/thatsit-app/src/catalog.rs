@@ -13,7 +13,8 @@ use thatsit_core::i18n::I18n;
 use thatsit_core::tools::ToolFinder;
 
 use crate::app_engines::APP_ENGINES;
-use crate::log;
+use crate::files::DraggedFile;
+use crate::{log, prefs};
 
 /// Bundle identifier, also the name of the per-user folders.
 pub const BUNDLE_ID: &str = "io.github.federicosimoni.thatsit";
@@ -89,6 +90,18 @@ impl Catalog {
         let availability = availability_for(&self.registry, &self.tools);
         log_hidden(&self.registry, &availability);
         *self.availability.borrow_mut() = availability;
+    }
+
+    /// Conversions offered for `files`: valid for all of them, runnable on this Mac and
+    /// not switched off in Preferences (the ring, the Finder service and `--list`).
+    pub fn compatible(&self, files: &[DraggedFile]) -> Vec<&Conversion> {
+        let infos: Vec<_> = files.iter().map(DraggedFile::file_info).collect();
+        let disabled = prefs::disabled_conversions();
+        self.registry
+            .matching(&infos, &self.availability())
+            .into_iter()
+            .filter(|c| !disabled.contains(&c.id))
+            .collect()
     }
 
     pub fn label<'c>(&self, conversion: &'c Conversion) -> &'c str {
