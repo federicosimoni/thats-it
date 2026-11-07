@@ -14,7 +14,9 @@
 
 English · [Italiano](README.it.md)
 
+<!-- Demo GIF, enabled once docs/assets/demo.gif is added:
 <img src="docs/assets/demo.gif" width="560" alt="Dragging a HEIC photo onto the widget, the ring opens and the photo is converted to JPG">
+-->
 
 </div>
 
