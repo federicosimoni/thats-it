@@ -11,6 +11,7 @@ pub mod menu;
 pub mod output;
 pub mod pipeline;
 pub mod placeholder;
+pub mod summon;
 pub mod tools;
 
 /// Re-exported so engine implementations outside the core use the same `toml` version.
