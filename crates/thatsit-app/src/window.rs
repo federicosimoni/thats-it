@@ -3,12 +3,11 @@
 //! A borderless, transparent window that sits just above the desktop icons and below every
 //! normal window, on every Space. While collapsed its frame is only the size of the icon so
 //! it never blocks clicks on desktop icons around it; while a drag hovers it, the frame
-//! grows (centred) to the size of the expanded ring.
+//! grows (centred) to the expanded ring plus a generous catch margin.
 
 use std::rc::Rc;
 
 use objc2::rc::Retained;
-use objc2::runtime::ProtocolObject;
 use objc2::{MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
     NSBackingStoreType, NSColor, NSWindow, NSWindowCollectionBehavior, NSWindowLevel,
@@ -56,12 +55,12 @@ impl Widget {
                 | NSWindowCollectionBehavior::Stationary
                 | NSWindowCollectionBehavior::IgnoresCycle,
         );
-        // Drag the disc to reposition the widget (the position is saved per screen).
-        window.setMovableByWindowBackground(true);
+        // The widget is moved by Option-dragging it between snap anchors (see RingView);
+        // a plain drag must not move it.
+        window.setMovableByWindowBackground(false);
 
         let view = RingView::new(mtm, catalog);
         window.setContentView(Some(&view));
-        window.setDelegate(Some(ProtocolObject::from_ref(&*view)));
         view.place_initially();
 
         Self { window, view }

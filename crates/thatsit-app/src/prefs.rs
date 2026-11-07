@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use objc2::rc::Retained;
 use objc2_foundation::{NSArray, NSString, NSUserDefaults};
+use thatsit_core::geometry::Anchor;
 
 const USE_SYSTEM_ACCENT: &str = "useSystemAccent";
 const WIDGET_HIDDEN: &str = "widgetHidden";
@@ -154,30 +155,23 @@ pub fn default_fallback_dir() -> PathBuf {
         .unwrap_or_else(std::env::temp_dir)
 }
 
-fn position_keys(screen: &str) -> (Retained<NSString>, Retained<NSString>, Retained<NSString>) {
-    (
-        key(&format!("position.{screen}.x")),
-        key(&format!("position.{screen}.y")),
-        key(&format!("position.{screen}.set")),
-    )
+/// The anchor the widget is snapped to on `screen` (Option-drag / Option-click).
+pub fn anchor(screen: &str) -> Option<Anchor> {
+    string(&format!("anchor.{screen}")).and_then(|s| Anchor::parse(&s))
 }
 
-/// The saved widget centre for `screen`, as fractions (0…1) of its visible frame.
-pub fn position(screen: &str) -> Option<(f64, f64)> {
+pub fn set_anchor(screen: &str, anchor: Anchor) {
+    set_string(&format!("anchor.{screen}"), Some(anchor.as_str()));
+}
+
+/// A free widget centre saved by earlier versions, as fractions (0…1) of the screen's
+/// visible frame. Only read once, to migrate it to the nearest anchor.
+pub fn legacy_position(screen: &str) -> Option<(f64, f64)> {
     let d = defaults();
-    let (x, y, set) = position_keys(screen);
-    if !d.boolForKey(&set) {
+    if !d.boolForKey(&key(&format!("position.{screen}.set"))) {
         return None;
     }
-    let (fx, fy) = (d.doubleForKey(&x), d.doubleForKey(&y));
+    let fx = d.doubleForKey(&key(&format!("position.{screen}.x")));
+    let fy = d.doubleForKey(&key(&format!("position.{screen}.y")));
     ((0.0..=1.0).contains(&fx) && (0.0..=1.0).contains(&fy)).then_some((fx, fy))
-}
-
-/// Saves the widget centre for `screen`, as fractions of its visible frame.
-pub fn set_position(screen: &str, fx: f64, fy: f64) {
-    let d = defaults();
-    let (x, y, set) = position_keys(screen);
-    d.setDouble_forKey(fx.clamp(0.0, 1.0), &x);
-    d.setDouble_forKey(fy.clamp(0.0, 1.0), &y);
-    d.setBool_forKey(true, &set);
 }

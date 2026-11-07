@@ -51,7 +51,14 @@ only the conversions compatible with the dragged file type. The user moves the c
 and releases: the conversion runs and the result is saved next to the original file.
 
 UX details:
-- Collapsed state: a small circular icon (≈ 64–80 pt). Draggable to reposition (position persisted).
+- Collapsed state: a small circular icon (≈ 64–80 pt).
+- **Repositioning — DECIDED:** only with **Option + drag** (a plain drag does nothing), snapping to one of
+  **5 anchors**: top-left, top-centre, top-right, bottom-right, bottom-left (no bottom-centre: Dock).
+  Anchors are inset from the screen edges so the fully expanded ring always fits. Option + click
+  (no drag) jumps to the next anchor clockwise. The anchor is persisted per screen; default bottom-right.
+- **Catch area — DECIDED:** as soon as a compatible drag enters the icon, the window grows to the ring
+  plus a wide invisible margin, so overshooting the ring does not close it; leaving the window closes
+  the ring after a short grace period (≈ 350 ms) unless the drag comes back.
 - Drag enters the collapsed circle → short hover delay (≈ 150 ms) → ring expands with animation.
 - Cursor angle selects the highlighted sector; a **central dead zone** cancels (drop there = nothing).
 - Max **8 sectors** per ring. If more conversions match, group them by category in the first ring
@@ -117,8 +124,8 @@ native shell.
 - **Frame sizing:** while collapsed the window frame is only the icon size (so it never blocks clicks
   on desktop icons underneath). On drag enter it grows (centered) to the expanded ring size and shrinks
   back on exit/drop.
-- Clamp the widget position so the fully expanded ring always fits inside the screen's `visibleFrame`.
-- Multi-monitor: user chooses the screen in Preferences; position persisted per screen.
+- The snap anchors keep the fully expanded ring inside the screen's `visibleFrame` (still clamped as a safety net).
+- Multi-monitor: user chooses the screen in Preferences; anchor persisted per screen.
 - Rendering: custom `NSView` subclass (objc2 `define_class!`) with layer-backed drawing
   (`CAShapeLayer` per sector) for smooth expand/highlight animations. Support light/dark mode.
 
@@ -290,7 +297,7 @@ Unit tests for everything. `docs/conversions.md` first draft.
 
 **Phase 2 — Radial UI**
 Layer-based ring, expand/collapse animations, hover delay, dead zone, highlight, categories +
-second ring, multi-file intersection, light/dark mode, drag-to-reposition, persisted position.
+second ring, multi-file intersection, light/dark mode, Option-drag to snap anchors, persisted anchor.
 
 **Phase 3 — Engines & conversions**
 Builtin engines (§6) and the full v1 set of bundled conversion TOMLs. Progress ring, notifications,

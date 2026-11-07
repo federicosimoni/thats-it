@@ -24,23 +24,21 @@ use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_clas
 use objc2_app_kit::{
     NSAnimatablePropertyContainer, NSAnimationContext, NSAppearanceCustomization,
     NSAppearanceNameAqua, NSAppearanceNameDarkAqua, NSColor, NSColorSpace, NSDragOperation,
-    NSDraggingDestination, NSDraggingInfo, NSEvent, NSFont, NSFontWeightMedium,
-    NSFontWeightRegular, NSFontWeightSemibold, NSImage, NSImageSymbolConfiguration, NSImageView,
-    NSPasteboardTypeFileURL, NSScreen, NSTextAlignment, NSTextField, NSView,
-    NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView,
-    NSWindowDelegate,
+    NSDraggingDestination, NSDraggingInfo, NSEvent, NSEventModifierFlags, NSFont,
+    NSFontWeightMedium, NSFontWeightRegular, NSFontWeightSemibold, NSImage,
+    NSImageSymbolConfiguration, NSImageView, NSPasteboardTypeFileURL, NSScreen, NSTextAlignment,
+    NSTextField, NSView, NSVisualEffectBlendingMode, NSVisualEffectMaterial, NSVisualEffectState,
+    NSVisualEffectView,
 };
 use objc2_core_foundation::CFRetained;
 use objc2_core_graphics::{CGColor, CGMutablePath};
-use objc2_foundation::{
-    NSArray, NSNotification, NSNumber, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
-};
+use objc2_foundation::{NSArray, NSNumber, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString};
 use objc2_quartz_core::{
     CABasicAnimation, CALayer, CAMediaTiming, CAMediaTimingFunction, CAShapeLayer, CATransaction,
     kCAMediaTimingFunctionEaseOut,
 };
 use thatsit_core::conversion::Category;
-use thatsit_core::geometry::{self, Hit, RingLayout};
+use thatsit_core::geometry::{self, Anchor, Hit, RingLayout};
 use thatsit_core::menu::{DropOutcome, Entry, Interaction, Level, Menu, ViewState};
 
 use crate::catalog::Catalog;
@@ -59,16 +57,32 @@ fn collapsed_disc() -> f64 {
 pub fn collapsed_size() -> f64 {
     collapsed_disc() + 4.0
 }
-/// Side of the window while expanded, in points.
-pub const EXPANDED_SIZE: f64 = 332.0;
 /// Radius of the expanded glass disc.
 const GLASS_RADIUS: f64 = 160.0;
+/// Invisible margin around the ring that still belongs to the widget during a drag, so
+/// overshooting the ring (or moving fast) does not close it.
+const CATCH_MARGIN: f64 = 110.0;
+/// Side of the window while a drag is over the widget (ring + catch margin), in points.
+pub const EXPANDED_SIZE: f64 = 2.0 * (GLASS_RADIUS + CATCH_MARGIN);
 /// Sector band, inner and outer radius.
 const SECTOR_INNER: f64 = 44.0;
 const SECTOR_OUTER: f64 = 154.0;
-/// Hit-testing: dead zone and (forgiving) outer radius.
+/// Hit-testing: dead zone and (forgiving) outer radius. Between `HIT_OUTER` and the edge
+/// of the window the ring stays open with nothing highlighted.
 const DEAD_ZONE: f64 = 42.0;
-const HIT_OUTER: f64 = EXPANDED_SIZE / 2.0;
+const HIT_OUTER: f64 = GLASS_RADIUS + 60.0;
+/// Distance of the widget centre from the edges of the screen at a snap anchor: the whole
+/// expanded ring plus a gap always fits.
+const SNAP_INSET: f64 = GLASS_RADIUS + 20.0;
+/// Where the widget sits until the user moves it.
+const DEFAULT_ANCHOR: Anchor = Anchor::BottomRight;
+/// Option-drags shorter than this are clicks (jump to the next anchor).
+const CLICK_SLOP: f64 = 4.0;
+/// A drag that leaves the widget gets this long to come back before the ring closes.
+const EXIT_GRACE: Duration = Duration::from_millis(350);
+/// Alpha of the (otherwise invisible) window background while a drag is over the widget.
+/// macOS lets events through fully transparent pixels, so it must not be zero.
+const CATCH_ALPHA: f64 = 0.012;
 /// Duration of the expand animation.
 const EXPAND_SECONDS: f64 = 0.16;
 
@@ -123,10 +137,25 @@ pub struct RingIvars {
     flash_gen: Cell<u64>,
     sectors: RefCell<Vec<SectorViews>>,
     session: RefCell<Option<Session>>,
+    /// The window is grown to [`EXPANDED_SIZE`] because a drag is over the widget.
+    armed: Cell<bool>,
+    /// The ring is shown (implies `armed`).
     expanded: Cell<bool>,
     unsupported: Cell<bool>,
-    /// Set while we move/resize the window ourselves (ignore `windowDidMove:`).
-    resizing: Cell<bool>,
+    /// Generation counter for the delayed collapse after `draggingExited:`.
+    exit_gen: Cell<u64>,
+    /// An Option-drag that moves the widget, if one is in progress.
+    moving: Cell<Option<Move>>,
+}
+
+/// An Option-drag of the collapsed widget.
+#[derive(Debug, Clone, Copy)]
+struct Move {
+    /// Mouse location (screen coordinates) and window origin at mouse-down.
+    mouse: NSPoint,
+    origin: NSPoint,
+    /// The mouse went farther than [`CLICK_SLOP`].
+    dragged: bool,
 }
 
 define_class!(
@@ -147,23 +176,64 @@ define_class!(
             true
         }
 
-        // Dragging the disc moves the window.
+        // The widget only moves with Option-drag, between the snap anchors (see `mouse_up`).
         // SAFETY: the signature matches `-[NSView mouseDownCanMoveWindow]`.
         #[unsafe(method(mouseDownCanMoveWindow))]
         fn mouse_down_can_move_window(&self) -> bool {
-            true
+            false
         }
 
-        // Only the disc is hit; the transparent corners let clicks through to the desktop.
-        // All points inside resolve to this view so subviews never steal drags or clicks.
+        // SAFETY: the signature matches `-[NSResponder mouseDown:]`.
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, event: &NSEvent) {
+            let iv = self.ivars();
+            let option = event.modifierFlags().contains(NSEventModifierFlags::Option);
+            let Some(window) = self.window().filter(|_| option && !iv.armed.get()) else {
+                return;
+            };
+            iv.moving.set(Some(Move {
+                mouse: NSEvent::mouseLocation(),
+                origin: window.frame().origin,
+                dragged: false,
+            }));
+        }
+
+        // SAFETY: the signature matches `-[NSResponder mouseDragged:]`.
+        #[unsafe(method(mouseDragged:))]
+        fn mouse_dragged(&self, _event: &NSEvent) {
+            let iv = self.ivars();
+            let (Some(mut m), Some(window)) = (iv.moving.get(), self.window()) else {
+                return;
+            };
+            let p = NSEvent::mouseLocation();
+            let (dx, dy) = (p.x - m.mouse.x, p.y - m.mouse.y);
+            m.dragged |= dx.hypot(dy) > CLICK_SLOP;
+            if m.dragged {
+                window.setFrameOrigin(NSPoint::new(m.origin.x + dx, m.origin.y + dy));
+            }
+            iv.moving.set(Some(m));
+        }
+
+        // SAFETY: the signature matches `-[NSResponder mouseUp:]`.
+        #[unsafe(method(mouseUp:))]
+        fn mouse_up(&self, _event: &NSEvent) {
+            if let Some(m) = self.ivars().moving.take() {
+                self.snap(m.dragged);
+            }
+        }
+
+        // Collapsed and idle, only the disc is hit and the transparent corners let clicks
+        // through to the desktop. During a drag the whole (grown) window is hit, so the
+        // catch margin keeps the drag. All points resolve to this view so subviews never
+        // steal drags or clicks.
         // SAFETY: the signature matches `-[NSView hitTest:]`.
         #[unsafe(method_id(hitTest:))]
         fn hit_test(&self, point: NSPoint) -> Option<Retained<NSView>> {
             let f = self.frame();
             let local = NSPoint::new(point.x - f.origin.x, point.y - f.origin.y);
             let c = centre_of(self.bounds());
-            let r = if self.ivars().expanded.get() { GLASS_RADIUS } else { collapsed_disc() / 2.0 };
-            let inside = (local.x - c.x).hypot(local.y - c.y) <= r;
+            let r = collapsed_disc() / 2.0;
+            let inside = self.ivars().armed.get() || (local.x - c.x).hypot(local.y - c.y) <= r;
             inside.then(|| Retained::into_super(self.retain()))
         }
 
@@ -177,23 +247,25 @@ define_class!(
     // SAFETY: `NSObjectProtocol` has no safety requirements.
     unsafe impl NSObjectProtocol for RingView {}
 
-    // SAFETY: the method has the signature declared by `NSWindowDelegate`.
-    unsafe impl NSWindowDelegate for RingView {
-        #[unsafe(method(windowDidMove:))]
-        fn window_did_move(&self, _notification: &NSNotification) {
-            if !self.ivars().resizing.get() && !self.ivars().expanded.get() {
-                self.save_position();
-            }
-        }
-    }
-
     // SAFETY: every method below has the exact signature declared by
     // `NSDraggingDestination`.
     unsafe impl NSDraggingDestination for RingView {
         #[unsafe(method(draggingEntered:))]
         fn dragging_entered(&self, sender: &ProtocolObject<dyn NSDraggingInfo>) -> NSDragOperation {
+            let iv = self.ivars();
+            // Cancels a pending collapse from a previous `draggingExited:`.
+            iv.exit_gen.set(iv.exit_gen.get() + 1);
+            if iv.session.borrow().is_some() {
+                log::info("drag came back → ring kept open");
+                return NSDragOperation::Copy;
+            }
             let dragged = files::read_files(&sender.draggingPasteboard());
-            self.begin_session(dragged)
+            let operation = self.begin_session(dragged);
+            if operation == NSDragOperation::Copy {
+                // Grow the catch area right away, before the ring opens.
+                self.set_state(true, false);
+            }
+            operation
         }
 
         #[unsafe(method(draggingUpdated:))]
@@ -204,10 +276,7 @@ define_class!(
 
         #[unsafe(method(draggingExited:))]
         fn dragging_exited(&self, _sender: Option<&ProtocolObject<dyn NSDraggingInfo>>) {
-            if self.ivars().session.borrow().is_some() {
-                log::info("drag exited → collapse");
-            }
-            self.end_session();
+            self.drag_exited();
         }
 
         #[unsafe(method(draggingEnded:))]
@@ -253,9 +322,11 @@ impl RingView {
             flash_gen: Cell::new(0),
             sectors: RefCell::new(Vec::new()),
             session: RefCell::new(None),
+            armed: Cell::new(false),
             expanded: Cell::new(false),
             unsupported: Cell::new(false),
-            resizing: Cell::new(false),
+            exit_gen: Cell::new(0),
+            moving: Cell::new(None),
         });
         // SAFETY: `initWithFrame:` is NSView's designated initializer and takes an NSRect.
         let view: Retained<Self> = unsafe { msg_send![super(this), initWithFrame: frame] };
@@ -631,7 +702,7 @@ impl RingView {
             (view, rebuild)
         };
         if view.expanded && !iv.expanded.get() {
-            self.set_expanded(true);
+            self.set_state(true, true);
         }
         if let Some((entries, matches, level)) = rebuild {
             self.build_ring(&entries, &matches, level);
@@ -671,11 +742,37 @@ impl RingView {
         }
     }
 
+    /// The drag left the window: clear the highlight and close the ring after
+    /// [`EXIT_GRACE`], unless the drag comes back first.
+    fn drag_exited(&self) {
+        let iv = self.ivars();
+        if iv.session.borrow().is_none() {
+            self.end_session();
+            return;
+        }
+        self.apply(Hit::Outside, now());
+        let generation = iv.exit_gen.get() + 1;
+        iv.exit_gen.set(generation);
+        let Ok(when) = DispatchTime::try_from(EXIT_GRACE) else {
+            self.end_session();
+            return;
+        };
+        let _ = DispatchQueue::main().after(when, move || {
+            with_view(|v| {
+                if v.ivars().exit_gen.get() == generation {
+                    log::info("drag exited → collapse");
+                    v.end_session();
+                }
+            })
+        });
+    }
+
     fn end_session(&self) {
         let iv = self.ivars();
+        iv.exit_gen.set(iv.exit_gen.get() + 1);
         iv.session.borrow_mut().take();
         self.set_unsupported(false);
-        self.set_expanded(false);
+        self.set_state(false, false);
     }
 
     fn set_unsupported(&self, unsupported: bool) {
@@ -774,46 +871,55 @@ impl RingView {
     // -----------------------------------------------------------------------------------
     // Window size and position
 
-    /// Grows (centred, clamped into the screen) or shrinks the window.
-    fn set_expanded(&self, expanded: bool) {
+    /// Sets the window state: `armed` grows the window (centred) to the catch area,
+    /// `expanded` also shows the ring, clamped so it fits on the screen. Disarming shrinks
+    /// the window back to the disc at its anchor.
+    fn set_state(&self, armed: bool, expanded: bool) {
         let iv = self.ivars();
-        if iv.expanded.get() == expanded {
+        let armed = armed || expanded;
+        if iv.armed.get() == armed && iv.expanded.get() == expanded {
             return;
         }
         let Some(window) = self.window() else {
             return;
         };
+        let opening = expanded && !iv.expanded.get();
         let mut centre = centre_of(window.frame());
-        if expanded {
-            if let Some(screen) = window.screen().or_else(|| NSScreen::mainScreen(self.mtm())) {
-                let (x, y) = geometry::clamp_center(
-                    (centre.x, centre.y),
-                    EXPANDED_SIZE / 2.0,
-                    to_rect(screen.visibleFrame()),
-                );
-                centre = NSPoint::new(x, y);
-            }
+        if !armed {
+            centre = self.home_centre().unwrap_or(centre);
+        } else if opening
+            && let Some(screen) = window.screen().or_else(|| NSScreen::mainScreen(self.mtm()))
+        {
+            let (x, y) = geometry::clamp_center(
+                (centre.x, centre.y),
+                GLASS_RADIUS + 8.0,
+                to_rect(screen.visibleFrame()),
+            );
+            centre = NSPoint::new(x, y);
         }
-        let size = if expanded {
+        let size = if armed {
             EXPANDED_SIZE
         } else {
             collapsed_size()
         };
+        iv.armed.set(armed);
         iv.expanded.set(expanded);
-        iv.resizing.set(true);
+        let background = if armed {
+            NSColor::colorWithWhite_alpha(0.5, CATCH_ALPHA)
+        } else {
+            NSColor::clearColor()
+        };
+        window.setBackgroundColor(Some(&background));
         window.setFrame_display(square_around(centre, size), true);
-        iv.resizing.set(false);
         if !expanded {
             for (shape, icon, text) in iv.sectors.borrow_mut().drain(..) {
                 shape.removeFromSuperlayer();
                 icon.removeFromSuperview();
                 text.removeFromSuperview();
             }
-            // The collapsed position may have moved because of clamping.
-            self.save_position();
         }
         self.layout_subviews();
-        if expanded {
+        if opening {
             self.animate_expand();
         }
     }
@@ -854,45 +960,66 @@ impl RingView {
         }
     }
 
-    /// Places the collapsed widget at its saved position on `screen` (or the default).
-    pub fn place_initially(&self) {
-        let Some(window) = self.window() else {
-            return;
-        };
-        let Some(screen) = chosen_screen(self.mtm()) else {
-            return;
-        };
-        let vf = screen.visibleFrame();
+    /// The chosen screen, its name and the anchor the widget is snapped to there.
+    fn home(&self) -> Option<(Retained<NSScreen>, String, Anchor)> {
+        let screen = chosen_screen(self.mtm())?;
         let name = screen.localizedName().to_string();
-        let (fx, fy) = prefs::position(&name).unwrap_or_else(|| {
-            // Default: bottom-right corner, with room for the expanded ring.
-            let inset = EXPANDED_SIZE / 2.0 + 24.0;
-            (1.0 - inset / vf.size.width, inset / vf.size.height)
+        let anchor = prefs::anchor(&name).unwrap_or_else(|| {
+            // Migrate a free position saved by an earlier version to the nearest anchor.
+            let vf = screen.visibleFrame();
+            prefs::legacy_position(&name)
+                .map(|(fx, fy)| {
+                    let p = (
+                        vf.origin.x + fx * vf.size.width,
+                        vf.origin.y + fy * vf.size.height,
+                    );
+                    Anchor::nearest(p, to_rect(vf), SNAP_INSET)
+                })
+                .unwrap_or(DEFAULT_ANCHOR)
         });
-        let centre = (
-            vf.origin.x + fx * vf.size.width,
-            vf.origin.y + fy * vf.size.height,
-        );
-        let (x, y) = geometry::clamp_center(centre, EXPANDED_SIZE / 2.0, to_rect(vf));
-        self.ivars().resizing.set(true);
-        window.setFrame_display(square_around(NSPoint::new(x, y), collapsed_size()), true);
-        self.ivars().resizing.set(false);
-        log::info(format!("widget on screen {name:?} at ({x:.0}, {y:.0})"));
+        Some((screen, name, anchor))
     }
 
-    fn save_position(&self) {
-        let Some(window) = self.window() else {
+    /// Centre of the collapsed widget at its anchor.
+    fn home_centre(&self) -> Option<NSPoint> {
+        let (screen, _, anchor) = self.home()?;
+        let (x, y) = anchor.point(to_rect(screen.visibleFrame()), SNAP_INSET);
+        Some(NSPoint::new(x, y))
+    }
+
+    /// Places the collapsed widget at its anchor on the chosen screen.
+    pub fn place_initially(&self) {
+        let (Some(window), Some((screen, name, anchor))) = (self.window(), self.home()) else {
             return;
         };
-        let Some(screen) = window.screen() else {
+        let (x, y) = anchor.point(to_rect(screen.visibleFrame()), SNAP_INSET);
+        window.setFrame_display(square_around(NSPoint::new(x, y), collapsed_size()), true);
+        log::info(format!(
+            "widget on screen {name:?} at {} ({x:.0}, {y:.0})",
+            anchor.as_str()
+        ));
+    }
+
+    /// Ends an Option-drag: snaps to the nearest anchor, or, for a plain Option-click,
+    /// jumps to the next anchor clockwise. The anchor is saved for the screen.
+    fn snap(&self, dragged: bool) {
+        let (Some(window), Some((screen, name, current))) = (self.window(), self.home()) else {
             return;
         };
-        let vf = screen.visibleFrame();
-        let c = centre_of(window.frame());
-        prefs::set_position(
-            &screen.localizedName().to_string(),
-            (c.x - vf.origin.x) / vf.size.width,
-            (c.y - vf.origin.y) / vf.size.height,
+        let bounds = to_rect(screen.visibleFrame());
+        let anchor = if dragged {
+            let c = centre_of(window.frame());
+            Anchor::nearest((c.x, c.y), bounds, SNAP_INSET)
+        } else {
+            current.next()
+        };
+        prefs::set_anchor(&name, anchor);
+        let (x, y) = anchor.point(bounds, SNAP_INSET);
+        log::info(format!("widget snapped to {}", anchor.as_str()));
+        window.setFrame_display_animate(
+            square_around(NSPoint::new(x, y), collapsed_size()),
+            true,
+            true,
         );
     }
 
