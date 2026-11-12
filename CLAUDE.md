@@ -18,6 +18,8 @@ Decisions marked **DECIDED** are settled with the owner; do not change them with
 - Small, focused commits with conventional messages (`feat:`, `fix:`, `docs:`, `chore:`…).
 - Do not add a dependency without a one-line justification in the commit message.
 - Keep `unsafe` to the objc2 boundary; every `unsafe` block gets a `// SAFETY:` comment.
+- **Releases — authorized by the owner:** when a release is ready, push the commits to `main`
+  (fast-forward) and start **Actions → Release → Run workflow** on `main` without asking again.
 - Ask before any decision that changes architecture, adds a new runtime dependency on an external
   tool, or affects distribution.
 - Prefer native macOS capabilities over bundling third-party binaries.
