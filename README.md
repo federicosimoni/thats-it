@@ -40,7 +40,7 @@ next to the original. No windows, no dialogs, no uploads: everything runs on you
 
 | Category | Conversions |
 |---|---|
-| **Images** | PNG, JPG, TIFF, BMP, GIF, WebP (lossless) in any direction · HEIC → JPG/PNG · SVG → PNG · PNG → app icon (ICNS) · shrink to 25 / 50 / 75% · enlarge to 150 / 200 / 300% · JPG quality · images → PDF |
+| **Images** | PNG, JPG, TIFF, BMP, GIF, WebP (lossless) in any direction · HEIC, AVIF → JPG/PNG · SVG → PNG · PNG → app icon (ICNS) · shrink to 25 / 50 / 75% · enlarge to 150 / 200 / 300% · JPG quality · images → PDF |
 | **Audio & video** | WAV, AIFF, M4A (AAC), CAF · → MP3¹ · MOV → MP4¹ · compress video¹ · video → GIF¹ · extract audio¹ |
 | **Documents** | DOCX, DOC, RTF, ODT, HTML, TXT in any direction · those → PDF · Markdown → HTML/PDF/DOCX · PDF pages → PNG |
 | **Utilities** | compress to ZIP · remove photo metadata (EXIF/GPS) without re-encoding · optimize PNG losslessly |

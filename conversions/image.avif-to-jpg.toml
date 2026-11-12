@@ -1,0 +1,32 @@
+# AVIF → JPG, using the built-in `sips` tool.
+schema     = 1
+id         = "image.avif-to-jpg"
+category   = "images"
+icon       = "photo"
+accepts    = ["public.avif"]
+accepts_ext = ["avif"]
+output_ext = "jpg"
+requires   = ["sips"]
+
+[label]
+en = "Convert to JPG"
+it = "Converti in JPG"
+
+[[steps]]
+cmd = ["sips", "-s", "format", "jpeg", "-s", "formatOptions", "{quality}", "{input}", "--out", "{output}"]
+
+[[variants]]
+id    = "high"
+label = { en = "High quality", it = "Alta qualità" }
+vars  = { quality = 95 }
+
+[[variants]]
+id      = "medium"
+default = true
+label   = { en = "Medium", it = "Media" }
+vars    = { quality = 85 }
+
+[[variants]]
+id    = "small"
+label = { en = "Small file", it = "File leggero" }
+vars  = { quality = 70 }

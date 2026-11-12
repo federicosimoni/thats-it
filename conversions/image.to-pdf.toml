@@ -9,10 +9,11 @@ accepts    = [
   "public.tiff",
   "public.heic",
   "public.heif",
+  "public.avif",
   "com.microsoft.bmp",
   "com.compuserve.gif",
 ]
-accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "heic", "heif", "bmp", "gif"]
+accepts_ext = ["png", "jpg", "jpeg", "tif", "tiff", "heic", "heif", "avif", "bmp", "gif"]
 output_ext = "pdf"
 requires   = ["sips"]
 
