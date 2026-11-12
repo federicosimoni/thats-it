@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.5.2] — 2026-11-12
+
+### Added
+
+- **AVIF** images: convert to JPG (with the quality variants) or PNG, and include them in
+  "Convert to PDF". Read by the built-in `sips` tool.
+
 ## [0.5.1] — 2026-11-07
 
 ### Changed
@@ -110,7 +117,8 @@ First public release.
 - English and Italian localization (Project Fluent).
 - Universal (Apple silicon + Intel) app bundle and `.dmg`, Homebrew cask.
 
-[Unreleased]: https://github.com/federicosimoni/thats-it/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/federicosimoni/thats-it/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/federicosimoni/thats-it/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/federicosimoni/thats-it/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/federicosimoni/thats-it/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/federicosimoni/thats-it/compare/v0.3.0...v0.4.0
