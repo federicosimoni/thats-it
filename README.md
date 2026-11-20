@@ -97,6 +97,18 @@ brew install --cask federicosimoni/tap/thats-it
 Homebrew downloads the same `.dmg`; the first launch still needs step 4 (or the `xattr`
 command above).
 
+### Update
+
+If you installed with Homebrew:
+
+```sh
+brew update && brew upgrade --cask thats-it
+```
+
+The same command is shown in **Preferences → General**. Without Homebrew, download the new
+`.dmg` from [Releases](https://github.com/federicosimoni/thats-it/releases/latest) and
+replace the app in Applications.
+
 ### Video and MP3 conversions
 
 They need [ffmpeg](https://ffmpeg.org). With [Homebrew](https://brew.sh):
@@ -137,16 +149,17 @@ go back.
 
 **Moving the widget:** hold **Option** and drag the disc. It snaps to one of five places
 (top left, top centre, top right, bottom right, bottom left), always far enough from the
-edges for the open ring to fit. **Option-click** jumps to the next place.
+edges for the open ring to fit. **Option-click** jumps to the next place. You can also pick the place in
+**Preferences → General → Widget position**.
 
 **Menu bar:** the tray icon in the menu bar opens Preferences (screen, widget size, open
-at login, accent color, which conversions appear, detected tools), hides the widget,
+at login, widget position, summon mode, accent color, which conversions appear, detected tools), hides the widget,
 cancels a running conversion and opens the folder for your own conversions.
 
-The widget sits on the desktop, under your windows. When it is covered (by windows or a
-full-screen app), start dragging files and keep the button pressed for half a second: a
-second widget appears **next to the pointer**, above everything, and works the same way.
-This can be turned off in Preferences.
+The widget sits on the desktop, under your windows. **Summon mode** (off by default, switch
+it on in Preferences): when the widget is covered (by windows or a full-screen app), start
+dragging files and keep the button pressed for half a second: a second widget appears
+**next to the pointer**, above everything, and works the same way.
 
 ## Finder menu and Shortcuts
 

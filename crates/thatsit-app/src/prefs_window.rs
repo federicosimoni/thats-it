@@ -3,7 +3,7 @@
 //! Built in code with fixed frames inside flipped views (top-to-bottom layout), so it
 //! needs no nib and no Auto Layout. Every change is applied immediately.
 
-use std::cell::{Cell, OnceCell};
+use std::cell::{Cell, OnceCell, RefCell};
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, Sel};
@@ -11,14 +11,15 @@ use objc2::{
     AnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel,
 };
 use objc2_app_kit::{
-    NSApplication, NSBackingStoreType, NSButton, NSControlStateValueOff, NSControlStateValueOn,
-    NSFont, NSFontWeightSemibold, NSModalResponseOK, NSOpenPanel, NSPopUpButton, NSScreen,
-    NSScrollView, NSTabView, NSTabViewItem, NSTextField, NSUserInterfaceItemIdentification, NSView,
-    NSWindow, NSWindowStyleMask,
+    NSApplication, NSBackingStoreType, NSButton, NSColor, NSControlStateValueOff,
+    NSControlStateValueOn, NSFont, NSFontWeightSemibold, NSImage, NSImageView, NSModalResponseOK,
+    NSOpenPanel, NSPopUpButton, NSScreen, NSScrollView, NSTabView, NSTabViewItem, NSTextField,
+    NSUserInterfaceItemIdentification, NSView, NSWindow, NSWindowStyleMask,
 };
 use objc2_foundation::{NSBundle, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString};
 use objc2_service_management::{SMAppService, SMAppServiceStatus};
 use thatsit_core::conversion::Category;
+use thatsit_core::geometry::Anchor;
 use thatsit_core::i18n::Arg;
 
 use crate::log;
@@ -59,6 +60,8 @@ pub struct PrefsIvars {
     view: Retained<RingView>,
     window: OnceCell<Retained<NSWindow>>,
     screens: OnceCell<Vec<String>>,
+    /// The widget position popup, updated when the screen changes.
+    position: RefCell<Option<Retained<NSPopUpButton>>>,
     /// Index of the tab to reselect after a rebuild.
     tab: Cell<isize>,
 }
@@ -81,6 +84,18 @@ define_class!(
             let name = (index > 0).then(|| names.get(index as usize - 1).cloned()).flatten();
             prefs::set_screen(name.as_deref());
             self.ivars().view.apply_preferences();
+            // Each screen has its own anchor.
+            if let Some(position) = self.ivars().position.borrow().as_ref() {
+                position.selectItemAtIndex(anchor_index(self.ivars().view.anchor()));
+            }
+        }
+
+        #[unsafe(method(positionChanged:))]
+        fn position_changed(&self, sender: Option<&NSPopUpButton>) {
+            let Some(popup) = sender else { return };
+            if let Some(anchor) = POSITIONS.get(popup.indexOfSelectedItem().max(0) as usize) {
+                self.ivars().view.move_to(*anchor);
+            }
         }
 
         #[unsafe(method(sizeChanged:))]
@@ -160,6 +175,7 @@ impl PrefsController {
             view,
             window: OnceCell::new(),
             screens: OnceCell::new(),
+            position: RefCell::new(None),
             tab: Cell::new(0),
         });
         // SAFETY: `init` is NSObject's designated initializer.
@@ -277,6 +293,30 @@ impl PrefsController {
         root.addSubview(&screen_popup);
         y += 40.0;
 
+        // Position (the same five anchors as Option-drag).
+        root.addSubview(&label(&i18n.tr("prefs-position"), row(y), mtm));
+        let position_popup = popup(control(y, 200.0), self, sel!(positionChanged:), mtm);
+        for anchor in POSITIONS {
+            position_popup
+                .addItemWithTitle(&NSString::from_str(&i18n.tr(anchor_message_id(anchor))));
+        }
+        position_popup.selectItemAtIndex(anchor_index(self.ivars().view.anchor()));
+        root.addSubview(&position_popup);
+        *self.ivars().position.borrow_mut() = Some(position_popup);
+        y += 24.0;
+        let hint = label(
+            &i18n.tr("prefs-position-hint"),
+            NSRect::new(
+                NSPoint::new(MARGIN + LABEL_W, y + 4.0),
+                NSSize::new(WIDTH - 2.0 * MARGIN - LABEL_W - 40.0, 16.0),
+            ),
+            mtm,
+        );
+        hint.setFont(Some(&NSFont::systemFontOfSize(11.0)));
+        hint.setTextColor(Some(&NSColor::secondaryLabelColor()));
+        root.addSubview(&hint);
+        y += 32.0;
+
         // Size.
         root.addSubview(&label(&i18n.tr("prefs-size"), row(y), mtm));
         let size_popup = popup(control(y, 160.0), self, sel!(sizeChanged:), mtm);
@@ -334,9 +374,11 @@ impl PrefsController {
 
         // Summon mode.
         let summon = checkbox(&i18n.tr("prefs-summon"), self, sel!(summonToggled:), mtm);
+        summon.sizeToFit();
+        let summon_w = summon.frame().size.width.min(WIDTH - 2.0 * MARGIN - 70.0);
         summon.setFrame(NSRect::new(
             NSPoint::new(MARGIN, y),
-            NSSize::new(WIDTH - 2.0 * MARGIN - 40.0, 22.0),
+            NSSize::new(summon_w, 22.0),
         ));
         summon.setState(if prefs::summon_enabled() {
             NSControlStateValueOn
@@ -344,6 +386,20 @@ impl PrefsController {
             NSControlStateValueOff
         });
         root.addSubview(&summon);
+        // An ⓘ next to it explains summon mode on hover.
+        if let Some(image) = NSImage::imageWithSystemSymbolName_accessibilityDescription(
+            &NSString::from_str("info.circle"),
+            Some(&NSString::from_str(&i18n.tr("prefs-summon"))),
+        ) {
+            let info = NSImageView::imageViewWithImage(&image, mtm);
+            info.setFrame(NSRect::new(
+                NSPoint::new(MARGIN + summon_w + 6.0, y + 2.0),
+                NSSize::new(18.0, 18.0),
+            ));
+            info.setContentTintColor(Some(&NSColor::secondaryLabelColor()));
+            info.setToolTip(Some(&NSString::from_str(&i18n.tr("prefs-summon-info"))));
+            root.addSubview(&info);
+        }
         y += 48.0;
 
         // Fallback folder.
@@ -377,6 +433,29 @@ impl PrefsController {
             NSSize::new(110.0, 28.0),
         ));
         root.addSubview(&choose);
+        y += 48.0;
+
+        // How to update (Homebrew).
+        root.addSubview(&label(
+            &i18n.tr("prefs-update"),
+            NSRect::new(
+                NSPoint::new(MARGIN, y),
+                NSSize::new(WIDTH - 2.0 * MARGIN - 40.0, 22.0),
+            ),
+            mtm,
+        ));
+        y += 26.0;
+        let command = label(
+            UPDATE_COMMAND,
+            NSRect::new(
+                NSPoint::new(MARGIN, y),
+                NSSize::new(WIDTH - 2.0 * MARGIN - 40.0, 20.0),
+            ),
+            mtm,
+        );
+        command.setFont(Some(&NSFont::monospacedSystemFontOfSize_weight(12.0, 0.0)));
+        command.setSelectable(true);
+        root.addSubview(&command);
 
         Retained::into_super(root)
     }
@@ -590,6 +669,35 @@ impl PrefsController {
         root.addSubview(&rescan);
         Retained::into_super(root)
     }
+}
+
+/// Terminal command that updates an install made with Homebrew.
+const UPDATE_COMMAND: &str = "brew update && brew upgrade --cask thats-it";
+
+/// The anchors in the order the position popup lists them.
+const POSITIONS: [Anchor; 5] = [
+    Anchor::TopLeft,
+    Anchor::TopCenter,
+    Anchor::TopRight,
+    Anchor::BottomLeft,
+    Anchor::BottomRight,
+];
+
+/// Fluent message id of an anchor's name.
+fn anchor_message_id(anchor: Anchor) -> &'static str {
+    match anchor {
+        Anchor::TopLeft => "prefs-position-top-left",
+        Anchor::TopCenter => "prefs-position-top-center",
+        Anchor::TopRight => "prefs-position-top-right",
+        Anchor::BottomRight => "prefs-position-bottom-right",
+        Anchor::BottomLeft => "prefs-position-bottom-left",
+    }
+}
+
+/// Index of `anchor` in the position popup (bottom right, the default, if unknown).
+fn anchor_index(anchor: Option<Anchor>) -> isize {
+    let anchor = anchor.unwrap_or(Anchor::BottomRight);
+    POSITIONS.iter().position(|a| *a == anchor).unwrap_or(4) as isize
 }
 
 fn login_enabled() -> bool {

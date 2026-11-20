@@ -1035,6 +1035,29 @@ impl RingView {
         ));
     }
 
+    /// The anchor the widget is snapped to on the chosen screen.
+    pub fn anchor(&self) -> Option<Anchor> {
+        self.home().map(|(_, _, anchor)| anchor)
+    }
+
+    /// Moves the widget to `anchor` on the chosen screen and saves it (Preferences).
+    pub fn move_to(&self, anchor: Anchor) {
+        let (Some(window), Some((screen, name, _))) = (self.window(), self.home()) else {
+            return;
+        };
+        prefs::set_anchor(&name, anchor);
+        if self.ivars().expanded.get() {
+            return;
+        }
+        let (x, y) = anchor.point(to_rect(screen.visibleFrame()), SNAP_INSET);
+        log::info(format!("widget moved to {}", anchor.as_str()));
+        window.setFrame_display_animate(
+            square_around(NSPoint::new(x, y), collapsed_size()),
+            true,
+            true,
+        );
+    }
+
     /// Ends an Option-drag: snaps to the nearest anchor, or, for a plain Option-click,
     /// jumps to the next anchor clockwise. The anchor is saved for the screen.
     fn snap(&self, dragged: bool) {

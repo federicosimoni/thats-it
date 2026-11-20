@@ -47,6 +47,13 @@ prefs-tab-conversions = Conversioni
 prefs-tab-tools = Strumenti
 
 prefs-screen = Mostra il widget su:
+prefs-position = Posizione del widget:
+prefs-position-top-left = In alto a sinistra
+prefs-position-top-center = In alto al centro
+prefs-position-top-right = In alto a destra
+prefs-position-bottom-left = In basso a sinistra
+prefs-position-bottom-right = In basso a destra
+prefs-position-hint = Oppure tieni premuto Option e trascina il widget.
 prefs-size = Dimensione widget:
 prefs-size-small = Piccolo
 prefs-size-medium = Medio
@@ -54,9 +61,11 @@ prefs-size-large = Grande
 prefs-login = Apri al login
 prefs-login-unavailable = Disponibile quando l'app è installata.
 prefs-accent = Usa il colore d'accento di sistema
-prefs-summon = Mostra il widget vicino al puntatore se la scrivania è coperta
+prefs-summon = Modalità richiamo
+prefs-summon-info = Quando finestre o un'app a schermo intero coprono la scrivania, inizia a trascinare i file e tieni premuto il tasto per mezzo secondo: accanto al puntatore compare un secondo widget, sopra tutto, che funziona allo stesso modo.
 prefs-fallback = Se la cartella originale non è scrivibile, salva in:
 prefs-choose = Scegli…
+prefs-update = Per aggiornare That's it installato con Homebrew, esegui nel Terminale:
 
 prefs-conversions-hint = Le conversioni non selezionate non compaiono mai nell'anello.
 prefs-needs = richiede { $tools }

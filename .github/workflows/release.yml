@@ -106,6 +106,7 @@ jobs:
           ## Install
 
           - **Homebrew:** \`brew install --cask federicosimoni/tap/thats-it\`
+          - **Update (Homebrew):** \`brew update && brew upgrade --cask thats-it\`
           - **Manually:** open the .dmg and drag *That's it* to Applications.
 
           Step-by-step instructions: [English](https://github.com/federicosimoni/thats-it#install) ·

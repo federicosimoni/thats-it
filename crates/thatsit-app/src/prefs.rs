@@ -12,7 +12,7 @@ use thatsit_core::geometry::Anchor;
 
 const USE_SYSTEM_ACCENT: &str = "useSystemAccent";
 const WIDGET_HIDDEN: &str = "widgetHidden";
-const SUMMON_OFF: &str = "summonDisabled";
+const SUMMON_ON: &str = "summonEnabled";
 const WIDGET_SIZE: &str = "widgetSize";
 const SCREEN: &str = "screen";
 const DISABLED: &str = "disabledConversions";
@@ -59,13 +59,14 @@ pub fn set_widget_hidden(hidden: bool) {
 }
 
 /// Summon mode: show the widget near the pointer during a file drag when the desktop is
-/// covered. On by default.
+/// covered. Off by default (switched on in Preferences); the key replaces the older
+/// `summonDisabled`, so earlier installs start with it off too.
 pub fn summon_enabled() -> bool {
-    !defaults().boolForKey(&key(SUMMON_OFF))
+    defaults().boolForKey(&key(SUMMON_ON))
 }
 
 pub fn set_summon_enabled(on: bool) {
-    defaults().setBool_forKey(!on, &key(SUMMON_OFF));
+    defaults().setBool_forKey(on, &key(SUMMON_ON));
 }
 
 /// Size of the collapsed widget.

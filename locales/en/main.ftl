@@ -48,6 +48,13 @@ prefs-tab-conversions = Conversions
 prefs-tab-tools = Tools
 
 prefs-screen = Show the widget on:
+prefs-position = Widget position:
+prefs-position-top-left = Top left
+prefs-position-top-center = Top centre
+prefs-position-top-right = Top right
+prefs-position-bottom-left = Bottom left
+prefs-position-bottom-right = Bottom right
+prefs-position-hint = Or hold Option and drag the widget.
 prefs-size = Widget size:
 prefs-size-small = Small
 prefs-size-medium = Medium
@@ -55,9 +62,11 @@ prefs-size-large = Large
 prefs-login = Open at login
 prefs-login-unavailable = Available when running the installed app.
 prefs-accent = Use system accent color
-prefs-summon = Show the widget near the pointer when the desktop is covered
+prefs-summon = Summon mode
+prefs-summon-info = When windows or a full-screen app cover the desktop, start dragging files and hold the button for half a second: a second widget appears next to the pointer, above everything, and works the same way.
 prefs-fallback = If the original folder is not writable, save to:
 prefs-choose = Choose…
+prefs-update = To update That's it installed with Homebrew, run in Terminal:
 
 prefs-conversions-hint = Unchecked conversions never appear in the ring.
 prefs-needs = needs { $tools }

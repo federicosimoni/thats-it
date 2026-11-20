@@ -101,6 +101,18 @@ brew install --cask federicosimoni/tap/thats-it
 Homebrew scarica lo stesso `.dmg`; il primo avvio richiede comunque il punto 4 (o il
 comando `xattr` qui sopra).
 
+### Aggiornamento
+
+Se hai installato con Homebrew:
+
+```sh
+brew update && brew upgrade --cask thats-it
+```
+
+Lo stesso comando è indicato in **Preferenze → Generali**. Senza Homebrew, scarica il nuovo
+`.dmg` da [Releases](https://github.com/federicosimoni/thats-it/releases/latest) e
+sostituisci l'app in Applicazioni.
+
 ### Conversioni video e MP3
 
 Richiedono [ffmpeg](https://ffmpeg.org). Con [Homebrew](https://brew.sh):
@@ -142,16 +154,17 @@ indietro.
 **Spostare il widget:** tieni premuto **Option** e trascina il disco. Si aggancia a uno di
 cinque punti (in alto a sinistra, in alto al centro, in alto a destra, in basso a destra, in
 basso a sinistra), sempre abbastanza lontano dai bordi perché l'anello aperto ci stia.
-**Option-clic** salta al punto successivo.
+**Option-clic** salta al punto successivo. Puoi anche scegliere il punto in
+**Preferenze → Generali → Posizione del widget**.
 
-**Barra dei menu:** l'icona nella barra dei menu apre le Preferenze (schermo, dimensione del
-widget, apertura al login, colore di accento, conversioni visibili, strumenti trovati),
-nasconde il widget, annulla una conversione in corso e apre la cartella delle tue conversioni.
+**Barra dei menu:** l'icona nella barra dei menu apre le Preferenze (schermo, dimensione e
+posizione del widget, apertura al login, modalità richiamo, colore di accento, conversioni
+visibili, strumenti trovati), nasconde il widget, annulla una conversione in corso e apre la cartella delle tue conversioni.
 
-Il widget sta sulla scrivania, sotto le finestre. Quando è coperto (da finestre o da un'app
-a tutto schermo), inizia a trascinare dei file e tieni premuto per mezzo secondo: compare un
-secondo widget **vicino al puntatore**, sopra tutto, che funziona allo stesso modo. Si può
-disattivare nelle Preferenze.
+Il widget sta sulla scrivania, sotto le finestre. **Modalità richiamo** (spenta di default,
+si attiva nelle Preferenze): quando il widget è coperto (da finestre o da un'app a tutto
+schermo), inizia a trascinare dei file e tieni premuto per mezzo secondo: compare un secondo
+widget **vicino al puntatore**, sopra tutto, che funziona allo stesso modo.
 
 ## Menu del Finder e Comandi Rapidi
 
