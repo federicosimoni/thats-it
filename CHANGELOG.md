@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-11-20
+
+### Added
+
+- Preferences → General: **Widget position** menu (top left, top centre, top right,
+  bottom left, bottom right), the same places as Option-drag.
+- Preferences → General: an ⓘ next to **Summon mode** explains it on hover.
+- How to update with Homebrew (`brew update && brew upgrade --cask thats-it`) in
+  Preferences, the README and the release notes.
+
+### Changed
+
+- Summon mode is **off by default**; switch it on in Preferences → General.
+
 ## [0.5.2] — 2026-11-12
 
 ### Added
@@ -117,7 +131,8 @@ First public release.
 - English and Italian localization (Project Fluent).
 - Universal (Apple silicon + Intel) app bundle and `.dmg`, Homebrew cask.
 
-[Unreleased]: https://github.com/federicosimoni/thats-it/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/federicosimoni/thats-it/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/federicosimoni/thats-it/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/federicosimoni/thats-it/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/federicosimoni/thats-it/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/federicosimoni/thats-it/compare/v0.4.0...v0.5.0
